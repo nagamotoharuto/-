@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Product {
+  id          String      @id @default(cuid())
+  name        String
+  category    String
+  price       Int
+  imageUrl    String
+  stock       Int         @default(0)
+  description String      @default("")
+  isAvailable Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  orderItems  OrderItem[]
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  nickname      String
+  userType      String
+  pickupTime    String
+  paymentMethod String
+  status        String      @default("pending")
+  totalAmount   Int
+  orderNumber   String      @unique
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  items         OrderItem[]
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  price     Int
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model StampCard {
+  id            String   @id @default(cuid())
+  nickname      String   @unique
+  stamps        Int      @default(0)
+  totalOrders   Int      @default(0)
+  streak        Int      @default(0)
+  lastOrderDate String   @default("")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
