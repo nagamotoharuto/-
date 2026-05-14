@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChefHat, ShoppingBag, Clock, CheckCircle, ArrowRight, MapPin } from "lucide-react";
+import Link from "next/link";
+import { ChefHat, ShoppingBag, Clock, CheckCircle, ArrowRight, MapPin, Lock } from "lucide-react";
 import { useBakeryStore } from "@/lib/store";
 import BottomNav from "@/components/features/BottomNav";
 
@@ -123,6 +124,16 @@ export default function HomePage() {
         <p className="text-center text-xs text-[#6b5e52] mt-4">
           お受け取りは <strong>1F 正面玄関前</strong> にて
         </p>
+
+        <div className="mt-8 flex justify-center">
+          <Link
+            href="/staff"
+            className="flex items-center gap-1.5 text-xs text-[#6b5e52] hover:text-[#1a4d2e] transition-colors py-2 px-4 rounded-xl hover:bg-[#e8e0d8]"
+          >
+            <Lock size={12} />
+            スタッフ管理画面
+          </Link>
+        </div>
       </div>
 
       <BottomNav />
