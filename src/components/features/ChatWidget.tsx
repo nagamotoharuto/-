@@ -8,7 +8,7 @@ import { useBakeryStore } from "@/lib/store";
 interface Message {
   role: "user" | "assistant";
   content: string;
-  pending?: boolean;
+  typing?: boolean;
 }
 
 const WELCOME: Message = {
@@ -19,16 +19,34 @@ const WELCOME: Message = {
 
 const SUGGESTIONS = ["甘いものが食べたい", "さっぱりしたもの", "お腹いっぱいになりたい"];
 
+// Typewriter effect: reveal text character by character
+async function typewriter(
+  fullText: string,
+  onUpdate: (text: string) => void,
+  signal: AbortSignal
+) {
+  const CHUNK = 4; // characters per tick
+  const DELAY = 25; // ms per tick
+  let displayed = "";
+  for (let i = 0; i < fullText.length; i += CHUNK) {
+    if (signal.aborted) break;
+    displayed += fullText.slice(i, i + CHUNK);
+    onUpdate(displayed);
+    await new Promise((r) => setTimeout(r, DELAY));
+  }
+  onUpdate(fullText);
+}
+
 export default function ChatWidget() {
-  // All hooks must be called before any conditional return
   const pathname = usePathname();
   const { user } = useBakeryStore();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState("");
-  const [streaming, setStreaming] = useState(false);
+  const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 100);
@@ -43,18 +61,22 @@ export default function ChatWidget() {
 
   async function sendMessage(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || streaming) return;
+    if (!trimmed || loading) return;
+
+    // Cancel any in-progress typewriter
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
 
     const userMsg: Message = { role: "user", content: trimmed };
-    const pendingMsg: Message = { role: "assistant", content: "", pending: true };
+    const botMsg: Message = { role: "assistant", content: "", typing: true };
 
-    setMessages((prev) => [...prev, userMsg, pendingMsg]);
+    setMessages((prev) => [...prev, userMsg, botMsg]);
     setInput("");
-    setStreaming(true);
+    setLoading(true);
 
-    // Build history (skip welcome, skip pending)
     const history = messages
-      .filter((m) => !m.pending)
+      .filter((m) => !m.typing)
       .slice(1)
       .map(({ role, content }) => ({ role, content }));
 
@@ -62,40 +84,44 @@ export default function ChatWidget() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: trimmed,
-          nickname: user?.nickname ?? null,
-          history,
-        }),
+        body: JSON.stringify({ message: trimmed, nickname: user?.nickname ?? null, history }),
       });
 
-      if (!res.ok || !res.body) {
-        const data = await res.json().catch(() => ({}));
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        const errText = data.error ?? "エラーが発生しました。もう一度お試しください。";
         setMessages((prev) =>
           prev.map((m, i) =>
-            i === prev.length - 1
-              ? { role: "assistant", content: data.error ?? "エラーが発生しました。もう一度お試しください。" }
-              : m
+            i === prev.length - 1 ? { role: "assistant", content: errText } : m
           )
         );
         return;
       }
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulated = "";
+      // Typewriter reveal
+      await typewriter(
+        data.content,
+        (partial) => {
+          setMessages((prev) =>
+            prev.map((m, i) =>
+              i === prev.length - 1
+                ? { role: "assistant", content: partial, typing: true }
+                : m
+            )
+          );
+        },
+        ac.signal
+      );
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        accumulated += decoder.decode(value, { stream: true });
-        setMessages((prev) =>
-          prev.map((m, i) =>
-            i === prev.length - 1 ? { role: "assistant", content: accumulated } : m
-          )
-        );
-      }
-    } catch {
+      // Mark typing done
+      setMessages((prev) =>
+        prev.map((m, i) =>
+          i === prev.length - 1 ? { ...m, typing: false } : m
+        )
+      );
+    } catch (err) {
+      console.error(err);
       setMessages((prev) =>
         prev.map((m, i) =>
           i === prev.length - 1
@@ -104,8 +130,7 @@ export default function ChatWidget() {
         )
       );
     } finally {
-      setStreaming(false);
-      setMessages((prev) => prev.map((m) => ({ ...m, pending: false })));
+      setLoading(false);
     }
   }
 
@@ -116,20 +141,17 @@ export default function ChatWidget() {
     }
   }
 
-  const showSuggestions = messages.length === 1 && !streaming;
+  const showSuggestions = messages.length === 1 && !loading;
 
   return (
     <>
-      {/* Chat panel */}
       {open && (
         <div className="fixed inset-0 z-40 flex flex-col justify-end pointer-events-none">
-          {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/30 pointer-events-auto"
             onClick={() => setOpen(false)}
           />
 
-          {/* Panel */}
           <div
             className="relative pointer-events-auto bg-white rounded-t-3xl shadow-2xl flex flex-col"
             style={{ height: "82vh", maxHeight: "640px" }}
@@ -172,7 +194,7 @@ export default function ChatWidget() {
                         : "bg-[#f5f0eb] text-[#1a1a1a] rounded-bl-sm"
                     }`}
                   >
-                    {msg.pending && !msg.content ? (
+                    {msg.typing && !msg.content ? (
                       <span className="flex items-center gap-1.5 text-[#6b5e52]">
                         <Loader2 size={14} className="animate-spin" />
                         考え中...
@@ -186,7 +208,7 @@ export default function ChatWidget() {
               <div ref={bottomRef} />
             </div>
 
-            {/* Quick suggestions (only on fresh chat) */}
+            {/* Quick suggestions */}
             {showSuggestions && (
               <div className="px-4 pb-2 flex gap-2 flex-wrap flex-shrink-0">
                 {SUGGESTIONS.map((s) => (
@@ -210,15 +232,15 @@ export default function ChatWidget() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="好みを教えてください..."
-                disabled={streaming}
+                disabled={loading}
                 className="flex-1 border border-[#e8e0d8] rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a4d2e] bg-[#fdf8f3] disabled:opacity-60"
               />
               <button
                 onClick={() => sendMessage(input)}
-                disabled={!input.trim() || streaming}
+                disabled={!input.trim() || loading}
                 className="w-11 h-11 bg-[#1a4d2e] text-white rounded-2xl flex items-center justify-center hover:bg-[#2d6b42] transition-colors disabled:opacity-40 flex-shrink-0"
               >
-                {streaming ? (
+                {loading ? (
                   <Loader2 size={18} className="animate-spin" />
                 ) : (
                   <Send size={18} />

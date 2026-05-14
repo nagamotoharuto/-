@@ -2,49 +2,69 @@ import { NextRequest } from "next/server";
 import OpenAI from "openai";
 import { db } from "@/lib/db";
 
+const CATEGORY_JA: Record<string, string> = {
+  bread: "パン",
+  drink: "ドリンク",
+  goods: "グッズ",
+};
+
 export async function POST(req: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
+    console.error("[chat] OPENAI_API_KEY is not set");
     return Response.json({ error: "OPENAI_API_KEY が設定されていません" }, { status: 500 });
   }
 
-  const { message, nickname, history } = (await req.json()) as {
-    message: string;
-    nickname?: string;
-    history: { role: "user" | "assistant"; content: string }[];
-  };
+  let body: { message?: string; nickname?: string; history?: { role: string; content: string }[] };
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: "リクエストの形式が正しくありません" }, { status: 400 });
+  }
 
+  const { message, nickname, history = [] } = body;
   if (!message?.trim()) {
     return Response.json({ error: "メッセージが空です" }, { status: 400 });
   }
 
-  // Fetch products that are available and in stock
-  const products = await db.product.findMany({
-    where: { isAvailable: true, stock: { gt: 0 } },
-    orderBy: { category: "asc" },
-  });
-
-  // Fetch user order history
-  let pastProducts: string[] = [];
-  if (nickname) {
-    const orders = await db.order.findMany({
-      where: { nickname },
-      include: { items: { include: { product: { select: { name: true } } } } },
-      orderBy: { createdAt: "desc" },
-      take: 10,
+  // Fetch available products
+  let products: { name: string; category: string; price: number; description: string }[] = [];
+  try {
+    products = await db.product.findMany({
+      where: { isAvailable: true, stock: { gt: 0 } },
+      select: { name: true, category: true, price: true, description: true },
+      orderBy: { category: "asc" },
     });
-    pastProducts = orders.flatMap((o) => o.items.map((i) => i.product.name));
+  } catch (err) {
+    console.error("[chat] DB product query failed:", err);
   }
 
-  const CATEGORY_JA: Record<string, string> = { bread: "パン", drink: "ドリンク", goods: "グッズ" };
+  // Fetch user order history
+  let pastProductNames: string[] = [];
+  if (nickname) {
+    try {
+      const orders = await db.order.findMany({
+        where: { nickname },
+        include: { items: { include: { product: { select: { name: true } } } } },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      });
+      pastProductNames = orders.flatMap((o) => o.items.map((i) => i.product.name));
+    } catch (err) {
+      console.error("[chat] DB order query failed:", err);
+    }
+  }
 
-  const productList = products
-    .map((p) => `・${p.name}（${CATEGORY_JA[p.category] ?? p.category}）¥${p.price} ${p.description}`)
-    .join("\n");
+  const productList =
+    products.length > 0
+      ? products
+          .map((p) => `・${p.name}（${CATEGORY_JA[p.category] ?? p.category}）¥${p.price} ${p.description}`)
+          .join("\n")
+      : "現在販売中の商品はありません";
 
   const historyText =
-    pastProducts.length > 0
-      ? `これまでに注文したことがある商品：${[...new Set(pastProducts)].join("、")}`
+    pastProductNames.length > 0
+      ? `これまでに注文したことがある商品：${[...new Set(pastProductNames)].join("、")}`
       : "注文履歴なし";
 
   const systemPrompt = `あなたは学内ベーカリーの親切なおすすめアシスタント「ベーカリーくん」です。
@@ -57,44 +77,37 @@ ${productList}
 ${historyText}
 
 【返答ルール】
-- 上記の「現在販売中の商品」の中からのみすすめてください
+- 上記「現在販売中の商品」の中からのみすすめてください
 - 2〜3品を具体的に紹介してください（商品名・価格・おすすめポイント）
-- ユーザーの好みのキーワード（「甘い」「さっぱり」「お腹いっぱい」「珍しい」など）に合わせて選んでください
-- 過去の注文履歴があれば、それも参考にしてください
-- フレンドリーで親しみやすい日本語で話してください
-- 返答は200字以内でコンパクトにまとめてください
-- 商品名は「」で囲んでください`;
+- ユーザーの好みのキーワードに合わせて選んでください
+- 商品名は「」で囲んでください
+- フレンドリーで親しみやすい日本語、200字以内でまとめてください`;
 
-  const openai = new OpenAI({ apiKey });
+  try {
+    const openai = new OpenAI({ apiKey });
 
-  const stream = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: systemPrompt },
-      // Keep last 6 messages to avoid token bloat
-      ...history.slice(-6),
-      { role: "user", content: message },
-    ],
-    stream: true,
-    max_tokens: 300,
-    temperature: 0.75,
-  });
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...history.slice(-6).map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+        { role: "user", content: message },
+      ],
+      max_tokens: 400,
+      temperature: 0.75,
+    });
 
-  const encoder = new TextEncoder();
-  const readable = new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of stream) {
-          const text = chunk.choices[0]?.delta?.content ?? "";
-          if (text) controller.enqueue(encoder.encode(text));
-        }
-      } finally {
-        controller.close();
-      }
-    },
-  });
+    const content =
+      completion.choices[0]?.message?.content?.trim() ?? "おすすめを提案できませんでした。";
 
-  return new Response(readable, {
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-  });
+    return Response.json({ content });
+  } catch (err) {
+    console.error("[chat] OpenAI error:", err);
+    const message =
+      err instanceof Error ? err.message : "OpenAI APIの呼び出しに失敗しました";
+    return Response.json({ error: message }, { status: 500 });
+  }
 }
