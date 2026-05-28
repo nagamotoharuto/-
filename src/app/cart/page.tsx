@@ -24,7 +24,7 @@ export default function CartPage() {
           <p className="text-[#6b5e52] font-medium">カートに商品がありません</p>
           <button
             onClick={() => router.push("/menu")}
-            className="bg-[#1a4d2e] text-white px-8 py-3 rounded-2xl font-bold"
+            className="bg-[#8B1A2C] text-white px-8 py-3 rounded-2xl font-bold"
           >
             メニューへ
           </button>
@@ -60,7 +60,7 @@ export default function CartPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-[#1a1a1a] line-clamp-2">{item.name}</p>
-                <p className="text-sm font-black text-[#1a4d2e]">{formatPrice(item.price)}</p>
+                <p className="text-sm font-black text-[#8B1A2C]">{formatPrice(item.price)}</p>
               </div>
               <div className="flex flex-col items-end gap-2">
                 <button
@@ -72,14 +72,14 @@ export default function CartPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                    className="w-7 h-7 border-2 border-[#1a4d2e] text-[#1a4d2e] rounded-full flex items-center justify-center hover:bg-[#1a4d2e] hover:text-white transition-colors"
+                    className="w-7 h-7 border-2 border-[#8B1A2C] text-[#8B1A2C] rounded-full flex items-center justify-center hover:bg-[#8B1A2C] hover:text-white transition-colors"
                   >
                     <Minus size={12} />
                   </button>
                   <span className="text-sm font-bold w-4 text-center">{item.quantity}</span>
                   <button
                     onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                    className="w-7 h-7 bg-[#1a4d2e] text-white rounded-full flex items-center justify-center hover:bg-[#2d6b42] transition-colors"
+                    className="w-7 h-7 bg-[#8B1A2C] text-white rounded-full flex items-center justify-center hover:bg-[#A52340] transition-colors"
                   >
                     <Plus size={12} />
                   </button>
@@ -98,7 +98,7 @@ export default function CartPage() {
           <div className="border-t border-[#e8e0d8] my-2" />
           <div className="flex justify-between items-center">
             <span className="font-bold text-[#1a1a1a]">合計</span>
-            <span className="text-xl font-black text-[#1a4d2e]">{formatPrice(total)}</span>
+            <span className="text-xl font-black text-[#8B1A2C]">{formatPrice(total)}</span>
           </div>
         </div>
       </div>

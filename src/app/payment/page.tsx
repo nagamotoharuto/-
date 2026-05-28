@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Wallet, SmartphoneNfc, ArrowRight, ChevronRight } from "lucide-react";
+import { Wallet, SmartphoneNfc, ArrowRight, Gift } from "lucide-react";
 import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
 import StepIndicator from "@/components/features/StepIndicator";
@@ -11,19 +11,11 @@ import { formatPrice } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 const PAYMENT_METHODS = [
-  {
-    id: "cash",
-    label: "現金",
-    description: "お受け取り時にお支払い",
-    icon: Wallet,
-  },
-  {
-    id: "paypay",
-    label: "PayPay",
-    description: "QRコードでお支払い",
-    icon: SmartphoneNfc,
-  },
+  { id: "cash", label: "現金", description: "お受け取り時にお支払い", icon: Wallet },
+  { id: "paypay", label: "PayPay", description: "QRコードでお支払い", icon: SmartphoneNfc },
 ];
+
+const BREAD_KEYWORDS = ["パン", "ロール", "クリーム", "カレー"];
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -31,8 +23,24 @@ export default function PaymentPage() {
   const [selected, setSelected] = useState(paymentMethod || "cash");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [freeItemAvailable, setFreeItemAvailable] = useState(false);
 
-  const total = getTotal();
+  useEffect(() => {
+    if (!user?.nickname) return;
+    fetch(`/api/stamp?nickname=${encodeURIComponent(user.nickname)}`)
+      .then((r) => r.json())
+      .then((data) => setFreeItemAvailable(data.freeItemAvailable ?? false))
+      .catch(() => {});
+  }, [user]);
+
+  // Detect cheapest bread-like item in cart for display purposes
+  const breadItems = cart
+    .filter((item) => BREAD_KEYWORDS.some((kw) => item.name.includes(kw)))
+    .sort((a, b) => a.price - b.price);
+
+  const freeBreadDiscount = freeItemAvailable && breadItems.length > 0 ? breadItems[0].price : 0;
+  const baseTotal = getTotal();
+  const displayTotal = Math.max(0, baseTotal - freeBreadDiscount);
 
   async function handleOrder() {
     if (!user || !pickupTime || cart.length === 0) {
@@ -83,13 +91,13 @@ export default function PaymentPage() {
               onClick={() => setSelected(id)}
               className={cn(
                 "bg-white rounded-2xl border-2 p-4 flex items-center gap-4 text-left transition-colors",
-                selected === id ? "border-[#1a4d2e]" : "border-[#e8e0d8]"
+                selected === id ? "border-[#8B1A2C]" : "border-[#e8e0d8]"
               )}
             >
               <div
                 className={cn(
                   "w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0",
-                  selected === id ? "bg-[#1a4d2e]" : "bg-[#f5f0eb]"
+                  selected === id ? "bg-[#8B1A2C]" : "bg-[#f5f0eb]"
                 )}
               >
                 <Icon size={22} className={selected === id ? "text-white" : "text-[#6b5e52]"} />
@@ -101,16 +109,27 @@ export default function PaymentPage() {
               <div
                 className={cn(
                   "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0",
-                  selected === id ? "border-[#1a4d2e] bg-[#1a4d2e]" : "border-[#e8e0d8]"
+                  selected === id ? "border-[#8B1A2C] bg-[#8B1A2C]" : "border-[#e8e0d8]"
                 )}
               >
-                {selected === id && (
-                  <div className="w-2 h-2 bg-white rounded-full" />
-                )}
+                {selected === id && <div className="w-2 h-2 bg-white rounded-full" />}
               </div>
             </button>
           ))}
         </div>
+
+        {/* Free bread banner */}
+        {freeItemAvailable && breadItems.length > 0 && (
+          <div className="bg-[#c8843a] text-white rounded-2xl p-3 mb-4 flex items-center gap-3">
+            <Gift size={20} className="flex-shrink-0" />
+            <div>
+              <p className="text-sm font-bold">パン1品無料が適用されます！</p>
+              <p className="text-xs opacity-90">
+                「{breadItems[0].name}」が {formatPrice(freeBreadDiscount)} 引きになります
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Order summary */}
         <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-4 mb-4">
@@ -124,10 +143,16 @@ export default function PaymentPage() {
                 <span className="text-sm font-medium">{formatPrice(item.price * item.quantity)}</span>
               </div>
             ))}
+            {freeBreadDiscount > 0 && (
+              <div className="flex justify-between items-center text-[#c8843a]">
+                <span className="text-sm font-bold">パン1品無料割引</span>
+                <span className="text-sm font-bold">-{formatPrice(freeBreadDiscount)}</span>
+              </div>
+            )}
           </div>
           <div className="border-t border-[#e8e0d8] pt-3 flex justify-between items-center">
             <span className="font-bold">合計</span>
-            <span className="text-xl font-black text-[#1a4d2e]">{formatPrice(total)}</span>
+            <span className="text-xl font-black text-[#8B1A2C]">{formatPrice(displayTotal)}</span>
           </div>
           {pickupTime && (
             <div className="mt-2 text-xs text-[#6b5e52] flex justify-between">

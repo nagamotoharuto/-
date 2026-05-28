@@ -9,11 +9,11 @@ export default function Header() {
   const totalItems = getTotalItems();
 
   return (
-    <header className="sticky top-0 z-50 bg-[#1a4d2e] text-white shadow-md">
+    <header className="sticky top-0 z-50 bg-[#8B1A2C] text-white shadow-md">
       <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <ChefHat size={22} className="text-[#c8843a]" />
-          <span className="font-bold text-base tracking-wide">学内ベーカリー</span>
+          <span className="font-bold text-base tracking-wide">University Bakery</span>
         </Link>
 
         <nav className="flex items-center gap-4">

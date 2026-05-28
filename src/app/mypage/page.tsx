@@ -13,6 +13,7 @@ interface StampCard {
   totalOrders: number;
   streak: number;
   lastOrderDate: string;
+  freeItemAvailable: boolean;
 }
 
 export default function MyPage() {
@@ -37,6 +38,7 @@ export default function MyPage() {
   const stamps = card?.stamps ?? 0;
   const streak = card?.streak ?? 0;
   const totalOrders = card?.totalOrders ?? 0;
+  const freeItemAvailable = card?.freeItemAvailable ?? false;
   const progress = stamps / STAMPS_PER_CARD;
   const remaining = STAMPS_PER_CARD - stamps;
 
@@ -46,20 +48,18 @@ export default function MyPage() {
 
       <div className="max-w-md mx-auto w-full px-4 py-4">
         {/* Profile */}
-        <div className="bg-[#1a4d2e] text-white rounded-2xl p-5 mb-4 shadow-md">
+        <div className="bg-[#8B1A2C] text-white rounded-2xl p-5 mb-4 shadow-md">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 bg-[#c8843a] rounded-full flex items-center justify-center text-xl font-black">
               {user.nickname.charAt(0)}
             </div>
             <div>
               <p className="font-black text-lg">{user.nickname}</p>
-              <p className="text-xs text-green-200">
+              <p className="text-xs text-[#ffc5ce]">
                 {USER_TYPE_LABELS[user.userType] ?? user.userType}
               </p>
             </div>
           </div>
-
-          {/* Stats */}
           <div className="grid grid-cols-3 gap-2">
             {[
               { icon: ShoppingBag, label: "合計注文", value: totalOrders, unit: "回" },
@@ -68,22 +68,35 @@ export default function MyPage() {
             ].map(({ icon: Icon, label, value, unit }) => (
               <div key={label} className="bg-white/10 rounded-xl p-3 text-center">
                 <Icon size={16} className="mx-auto mb-1 text-[#c8843a]" />
-                <p className="text-xs text-green-200">{label}</p>
+                <p className="text-xs text-[#ffc5ce]">{label}</p>
                 <p className="font-black text-lg">
                   {value}
-                  <span className="text-xs font-normal text-green-200">{unit}</span>
+                  <span className="text-xs font-normal text-[#ffc5ce]">{unit}</span>
                 </p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Stamp card - Coke ON style */}
+        {/* Free item banner */}
+        {freeItemAvailable && (
+          <div className="bg-[#c8843a] text-white rounded-2xl p-4 mb-4 flex items-center gap-3 shadow-md">
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+              <Gift size={20} />
+            </div>
+            <div>
+              <p className="font-black text-sm">パン1個無料！</p>
+              <p className="text-xs opacity-90">次回ご注文時にパン1品が自動で割引されます</p>
+            </div>
+          </div>
+        )}
+
+        {/* Stamp card */}
         <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-5 mb-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-[#1a1a1a]">スタンプカード</h2>
             <span className="text-xs text-[#6b5e52] bg-[#f5f0eb] px-2 py-1 rounded-full">
-              {STAMPS_PER_CARD}個で1品無料
+              {STAMPS_PER_CARD}個でパン1品無料
             </span>
           </div>
 
@@ -101,56 +114,46 @@ export default function MyPage() {
                     key={i}
                     className={`aspect-square rounded-full flex items-center justify-center transition-all ${
                       i < stamps
-                        ? "bg-[#1a4d2e] shadow-sm"
+                        ? "bg-[#8B1A2C] shadow-sm"
                         : "bg-[#f5f0eb] border-2 border-dashed border-[#e8e0d8]"
                     }`}
                   >
-                    {i < stamps && (
-                      <Star
-                        size={14}
-                        className="text-[#c8843a] fill-[#c8843a]"
-                      />
-                    )}
+                    {i < stamps && <Star size={14} className="text-[#c8843a] fill-[#c8843a]" />}
                     {i === STAMPS_PER_CARD - 1 && i >= stamps && (
                       <Gift size={14} className="text-[#e8e0d8]" />
                     )}
                   </div>
                 ))}
               </div>
-
-              {/* Progress bar */}
               <div className="w-full bg-[#f5f0eb] rounded-full h-2 mb-2">
                 <div
-                  className="bg-[#1a4d2e] h-2 rounded-full transition-all duration-700"
+                  className="bg-[#8B1A2C] h-2 rounded-full transition-all duration-700"
                   style={{ width: `${Math.min(progress * 100, 100)}%` }}
                 />
               </div>
               <p className="text-xs text-center text-[#6b5e52]">
-                {stamps === 0
+                {freeItemAvailable
+                  ? "おめでとうございます！次の注文でパン1品無料！"
+                  : stamps === 0
                   ? "注文するとスタンプが貯まります"
-                  : stamps >= STAMPS_PER_CARD
-                  ? "おめでとうございます！1品プレゼント！"
-                  : `あと${remaining}個で無料ドリンクプレゼント`}
+                  : `あと${remaining}個でパン1品無料`}
               </p>
             </>
           )}
         </div>
 
-        {/* Streak card - Coke ON challenge style */}
+        {/* Streak card */}
         <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-5 mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Flame size={20} className="text-orange-500" />
             <h2 className="font-bold text-[#1a1a1a]">連続注文チャレンジ</h2>
           </div>
-
           <div className="flex gap-2 overflow-x-auto pb-1">
             {[1, 3, 7, 14, 30].map((milestone) => (
               <div
                 key={milestone}
                 className={`flex-shrink-0 rounded-xl p-3 text-center w-16 ${
-                  streak >= milestone
-                    ? "bg-[#1a4d2e] text-white"
-                    : "bg-[#f5f0eb] text-[#6b5e52]"
+                  streak >= milestone ? "bg-[#8B1A2C] text-white" : "bg-[#f5f0eb] text-[#6b5e52]"
                 }`}
               >
                 <Flame
@@ -162,22 +165,20 @@ export default function MyPage() {
             ))}
           </div>
           <p className="text-xs text-[#6b5e52] mt-3">
-            {streak === 0
-              ? "毎日注文して連続記録を作ろう！"
-              : `現在${streak}日連続！継続中`}
+            {streak === 0 ? "毎日注文して連続記録を作ろう！" : `現在${streak}日連続！継続中`}
           </p>
         </div>
 
-        {/* Info */}
+        {/* Rules */}
         <div className="bg-[#f5f0eb] rounded-2xl p-4 text-xs text-[#6b5e52]">
           <div className="flex items-center gap-2 mb-2">
             <Calendar size={14} />
             <span className="font-bold">スタンプ獲得ルール</span>
           </div>
           <ul className="space-y-1 pl-4 list-disc">
-            <li>1回の注文で1スタンプ獲得</li>
-            <li>{STAMPS_PER_CARD}スタンプ達成でパン1品無料</li>
-            <li>連続日数は毎日の注文で加算</li>
+            <li>1日1スタンプ獲得（翌日以降の注文で加算）</li>
+            <li>パン3個以上 または 大学グッズ1個以上でボーナス+1スタンプ</li>
+            <li>{STAMPS_PER_CARD}スタンプ達成でパン1品無料（次回注文時に自動適用）</li>
             <li>スタンプは達成後にリセットされます</li>
           </ul>
         </div>

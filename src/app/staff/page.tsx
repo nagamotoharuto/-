@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, ChefHat, Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
+import { Lock, ChefHat, Eye, EyeOff, Home } from "lucide-react";
 
 export default function StaffLoginPage() {
   const router = useRouter();
@@ -36,14 +37,14 @@ export default function StaffLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1a4d2e] flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-[#8B1A2C] flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-[#c8843a] rounded-full flex items-center justify-center mx-auto mb-3">
             <ChefHat size={32} className="text-white" />
           </div>
           <h1 className="text-white text-xl font-black">スタッフ管理画面</h1>
-          <p className="text-green-200 text-sm mt-1">学内ベーカリー</p>
+          <p className="text-[#ffc5ce] text-sm mt-1">University Bakery</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-xl">
@@ -63,7 +64,7 @@ export default function StaffLoginPage() {
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setError(""); }}
                   placeholder="パスワードを入力"
-                  className="w-full border border-[#e8e0d8] rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a4d2e] bg-[#fdf8f3]"
+                  className="w-full border border-[#e8e0d8] rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] bg-[#fdf8f3]"
                   autoComplete="current-password"
                 />
                 <button
@@ -80,7 +81,7 @@ export default function StaffLoginPage() {
             <button
               type="submit"
               disabled={loading || !password}
-              className="w-full bg-[#1a4d2e] text-white rounded-xl py-3 font-bold disabled:opacity-60 hover:bg-[#2d6b42] transition-colors"
+              className="w-full bg-[#8B1A2C] text-white rounded-xl py-3 font-bold disabled:opacity-60 hover:bg-[#A52340] transition-colors"
             >
               {loading ? "確認中..." : "ログイン"}
             </button>
@@ -90,6 +91,14 @@ export default function StaffLoginPage() {
             このページはスタッフのみが使用できます
           </p>
         </div>
+
+        <Link
+          href="/"
+          className="mt-5 flex items-center justify-center gap-1.5 text-[#ffc5ce] hover:text-white text-sm transition-colors"
+        >
+          <Home size={14} />
+          ホームに戻る
+        </Link>
       </div>
     </div>
   );

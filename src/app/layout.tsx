@@ -3,7 +3,7 @@ import "./globals.css";
 import ChatWidget from "@/components/features/ChatWidget";
 
 export const metadata: Metadata = {
-  title: "学内ベーカリー | 事前予約",
+  title: "University Bakery | 事前予約",
   description: "大学内パン屋の事前予約アプリ",
 };
 

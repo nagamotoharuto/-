@@ -157,14 +157,14 @@ export default function ChatWidget() {
             style={{ height: "82vh", maxHeight: "640px" }}
           >
             {/* Header */}
-            <div className="bg-[#1a4d2e] text-white px-4 py-3 rounded-t-3xl flex items-center justify-between flex-shrink-0">
+            <div className="bg-[#8B1A2C] text-white px-4 py-3 rounded-t-3xl flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-[#c8843a] rounded-full flex items-center justify-center">
                   <ChefHat size={16} />
                 </div>
                 <div>
                   <p className="text-sm font-bold leading-tight">おすすめアシスタント</p>
-                  <p className="text-xs text-green-200 leading-tight">AIが在庫から厳選してご提案</p>
+                  <p className="text-xs text-[#ffc5ce] leading-tight">AIが在庫から厳選してご提案</p>
                 </div>
               </div>
               <button
@@ -190,7 +190,7 @@ export default function ChatWidget() {
                   <div
                     className={`max-w-[78%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
                       msg.role === "user"
-                        ? "bg-[#1a4d2e] text-white rounded-br-sm"
+                        ? "bg-[#8B1A2C] text-white rounded-br-sm"
                         : "bg-[#f5f0eb] text-[#1a1a1a] rounded-bl-sm"
                     }`}
                   >
@@ -215,7 +215,7 @@ export default function ChatWidget() {
                   <button
                     key={s}
                     onClick={() => sendMessage(s)}
-                    className="text-xs bg-[#f5f0eb] text-[#1a4d2e] px-3 py-1.5 rounded-full border border-[#e8e0d8] hover:bg-[#1a4d2e] hover:text-white transition-colors font-medium"
+                    className="text-xs bg-[#f5f0eb] text-[#8B1A2C] px-3 py-1.5 rounded-full border border-[#e8e0d8] hover:bg-[#8B1A2C] hover:text-white transition-colors font-medium"
                   >
                     {s}
                   </button>
@@ -233,12 +233,12 @@ export default function ChatWidget() {
                 onKeyDown={handleKeyDown}
                 placeholder="好みを教えてください..."
                 disabled={loading}
-                className="flex-1 border border-[#e8e0d8] rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a4d2e] bg-[#fdf8f3] disabled:opacity-60"
+                className="flex-1 border border-[#e8e0d8] rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] bg-[#fdf8f3] disabled:opacity-60"
               />
               <button
                 onClick={() => sendMessage(input)}
                 disabled={!input.trim() || loading}
-                className="w-11 h-11 bg-[#1a4d2e] text-white rounded-2xl flex items-center justify-center hover:bg-[#2d6b42] transition-colors disabled:opacity-40 flex-shrink-0"
+                className="w-11 h-11 bg-[#8B1A2C] text-white rounded-2xl flex items-center justify-center hover:bg-[#A52340] transition-colors disabled:opacity-40 flex-shrink-0"
               >
                 {loading ? (
                   <Loader2 size={18} className="animate-spin" />
@@ -254,7 +254,7 @@ export default function ChatWidget() {
       {/* Floating button */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-24 right-4 z-30 w-14 h-14 bg-[#1a4d2e] text-white rounded-full shadow-lg flex items-center justify-center hover:bg-[#2d6b42] transition-all active:scale-95"
+        className="fixed bottom-24 right-4 z-30 w-14 h-14 bg-[#8B1A2C] text-white rounded-full shadow-lg flex items-center justify-center hover:bg-[#A52340] transition-all active:scale-95"
         aria-label="おすすめアシスタントを開く"
       >
         <MessageCircle size={24} />

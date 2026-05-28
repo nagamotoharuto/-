@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       ? `これまでに注文したことがある商品：${[...new Set(pastProductNames)].join("、")}`
       : "注文履歴なし";
 
-  const systemPrompt = `あなたは学内ベーカリーの親切なおすすめアシスタント「ベーカリーくん」です。
+  const systemPrompt = `あなたはUniversity Bakeryの親切なおすすめアシスタント「ベーカリーくん」です。
 ユーザーの好みや過去の注文履歴をもとに、現在販売中の商品をおすすめします。
 
 【現在販売中の商品（在庫あり）】

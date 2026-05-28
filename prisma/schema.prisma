@@ -45,12 +45,13 @@ model OrderItem {
 }
 
 model StampCard {
-  id            String   @id @default(cuid())
-  nickname      String   @unique
-  stamps        Int      @default(0)
-  totalOrders   Int      @default(0)
-  streak        Int      @default(0)
-  lastOrderDate String   @default("")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                String   @id @default(cuid())
+  nickname          String   @unique
+  stamps            Int      @default(0)
+  totalOrders       Int      @default(0)
+  streak            Int      @default(0)
+  lastOrderDate     String   @default("")
+  freeItemAvailable Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }

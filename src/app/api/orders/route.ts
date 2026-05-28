@@ -51,10 +51,11 @@ export async function POST(request: NextRequest) {
     const products = await db.product.findMany({ where: { id: { in: productIds } } });
     const productMap = new Map(products.map((p) => [p.id, p]));
 
+    // Validate stock and availability
     for (const item of items) {
       const product = productMap.get(item.productId);
       if (!product) {
-        return NextResponse.json({ error: `商品が見つかりません` }, { status: 400 });
+        return NextResponse.json({ error: "商品が見つかりません" }, { status: 400 });
       }
       if (!product.isAvailable) {
         return NextResponse.json({ error: `「${product.name}」は現在販売停止中です` }, { status: 400 });
@@ -67,9 +68,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const totalAmount = items.reduce((sum, item) => {
+    // Check for free bread eligibility (auto-applied server-side)
+    const stampCard = await db.stampCard.findUnique({ where: { nickname } });
+    let freeBreadDiscount = 0;
+    let freeBreadName = "";
+    if (stampCard?.freeItemAvailable) {
+      const breadItems = items
+        .map((item) => ({ item, product: productMap.get(item.productId)! }))
+        .filter(({ product }) => product.category === "bread")
+        .sort((a, b) => a.product.price - b.product.price);
+      if (breadItems.length > 0) {
+        freeBreadDiscount = breadItems[0].product.price;
+        freeBreadName = breadItems[0].product.name;
+      }
+    }
+
+    const baseTotal = items.reduce((sum, item) => {
       return sum + productMap.get(item.productId)!.price * item.quantity;
     }, 0);
+    const totalAmount = Math.max(0, baseTotal - freeBreadDiscount);
 
     // Generate unique order number
     let orderNumber = generateOrderNumber();
@@ -79,7 +96,7 @@ export async function POST(request: NextRequest) {
       orderNumber = generateOrderNumber();
     }
 
-    // Decrement stock for each item (sequential, no interactive transaction needed)
+    // Decrement stock
     for (const item of items) {
       await db.product.update({
         where: { id: item.productId },
@@ -87,7 +104,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create the order with all items
+    // Create order
     const order = await db.order.create({
       data: {
         nickname,
@@ -107,32 +124,61 @@ export async function POST(request: NextRequest) {
       include: { items: { include: { product: true } } },
     });
 
-    // Update stamp card (outside transaction — stamp loss on error is acceptable)
+    // Update stamp card
     const today = getTodayString();
     const yesterday = getYesterdayString();
-    const existingCard = await db.stampCard.findUnique({ where: { nickname } });
 
-    if (!existingCard) {
+    // Bonus stamp: bread qty ≥ 3 OR goods qty ≥ 1 in this order
+    const breadTotal = items.reduce((sum, item) => {
+      const p = productMap.get(item.productId);
+      return p?.category === "bread" ? sum + item.quantity : sum;
+    }, 0);
+    const goodsTotal = items.reduce((sum, item) => {
+      const p = productMap.get(item.productId);
+      return p?.category === "goods" ? sum + item.quantity : sum;
+    }, 0);
+    const bonusStamp = breadTotal >= 3 || goodsTotal >= 1 ? 1 : 0;
+
+    if (!stampCard) {
+      const isNewDay = true;
+      const baseStamp = 1;
+      const stampsToAdd = baseStamp + bonusStamp;
+      const reachedGoal = stampsToAdd >= 10;
       await db.stampCard.create({
-        data: { nickname, stamps: 1, totalOrders: 1, streak: 1, lastOrderDate: today },
+        data: {
+          nickname,
+          stamps: reachedGoal ? stampsToAdd - 10 : stampsToAdd,
+          totalOrders: 1,
+          streak: 1,
+          lastOrderDate: today,
+          freeItemAvailable: reachedGoal,
+        },
       });
     } else {
-      const alreadyToday = existingCard.lastOrderDate === today;
-      let newStamps = existingCard.stamps;
-      let newStreak = existingCard.streak;
-
-      if (!alreadyToday) {
-        newStamps = existingCard.stamps + 1 >= 15 ? 0 : existingCard.stamps + 1;
-        newStreak = existingCard.lastOrderDate === yesterday ? existingCard.streak + 1 : 1;
-      }
+      const isNewDay = stampCard.lastOrderDate !== today;
+      const baseStamp = isNewDay ? 1 : 0;
+      const stampsToAdd = baseStamp + bonusStamp;
+      const rawStamps = stampCard.stamps + stampsToAdd;
+      const reachedGoal = rawStamps >= 10;
+      const newStamps = reachedGoal ? rawStamps - 10 : rawStamps;
+      const newStreak = isNewDay
+        ? stampCard.lastOrderDate === yesterday ? stampCard.streak + 1 : 1
+        : stampCard.streak;
 
       await db.stampCard.update({
         where: { nickname },
-        data: { stamps: newStamps, totalOrders: { increment: 1 }, streak: newStreak, lastOrderDate: today },
+        data: {
+          stamps: newStamps,
+          totalOrders: { increment: 1 },
+          streak: newStreak,
+          lastOrderDate: isNewDay ? today : stampCard.lastOrderDate,
+          // Set to true if reached goal; clear if we just used a free bread
+          freeItemAvailable: freeBreadDiscount > 0 ? reachedGoal : (reachedGoal || stampCard.freeItemAvailable),
+        },
       });
     }
 
-    return NextResponse.json(order, { status: 201 });
+    return NextResponse.json({ ...order, freeBreadName: freeBreadName || null }, { status: 201 });
   } catch (error) {
     console.error("POST /api/orders error:", error);
     return NextResponse.json({ error: "注文の作成に失敗しました" }, { status: 500 });

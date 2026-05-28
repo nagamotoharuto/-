@@ -49,4 +49,4 @@ export const USER_TYPE_LABELS: Record<string, string> = {
   visitor: "一般来場者",
 };
 
-export const STAMPS_PER_CARD = 15;
+export const STAMPS_PER_CARD = 10;

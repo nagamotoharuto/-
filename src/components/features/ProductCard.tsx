@@ -72,13 +72,13 @@ export default function ProductCard({ product }: { product: Product }) {
           <p className="text-xs text-[#6b5e52] mb-2 line-clamp-2">{product.description}</p>
         )}
         <div className="mt-auto flex items-center justify-between">
-          <span className="text-base font-black text-[#1a4d2e]">{formatPrice(product.price)}</span>
+          <span className="text-base font-black text-[#8B1A2C]">{formatPrice(product.price)}</span>
 
           {qty === 0 ? (
             <button
               onClick={handleAdd}
               disabled={soldOut}
-              className="w-8 h-8 bg-[#1a4d2e] text-white rounded-full flex items-center justify-center hover:bg-[#2d6b42] transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-90"
+              className="w-8 h-8 bg-[#8B1A2C] text-white rounded-full flex items-center justify-center hover:bg-[#A52340] transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-90"
             >
               <Plus size={16} />
             </button>
@@ -86,7 +86,7 @@ export default function ProductCard({ product }: { product: Product }) {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleMinus}
-                className="w-7 h-7 border-2 border-[#1a4d2e] text-[#1a4d2e] rounded-full flex items-center justify-center hover:bg-[#1a4d2e] hover:text-white transition-colors active:scale-90"
+                className="w-7 h-7 border-2 border-[#8B1A2C] text-[#8B1A2C] rounded-full flex items-center justify-center hover:bg-[#8B1A2C] hover:text-white transition-colors active:scale-90"
               >
                 <Minus size={13} />
               </button>
@@ -94,7 +94,7 @@ export default function ProductCard({ product }: { product: Product }) {
               <button
                 onClick={handleAdd}
                 disabled={qty >= product.stock}
-                className="w-7 h-7 bg-[#1a4d2e] text-white rounded-full flex items-center justify-center hover:bg-[#2d6b42] transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-90"
+                className="w-7 h-7 bg-[#8B1A2C] text-white rounded-full flex items-center justify-center hover:bg-[#A52340] transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-90"
               >
                 <Plus size={13} />
               </button>
