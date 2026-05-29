@@ -92,7 +92,7 @@ export default function StaffDashboardPage() {
       {/* Staff header */}
       <header className="bg-[#1B3A6B] text-white px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <ChefHat size={20} className="text-[#F2DC8F]" />
+          <ChefHat size={20} className="text-[#F0AA5A]" />
           <span className="font-bold text-sm">スタッフ管理画面</span>
         </div>
         <div className="flex items-center gap-3">

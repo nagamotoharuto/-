@@ -24,7 +24,7 @@ export default function StepIndicator({ current }: { current: number }) {
                 step.number < current
                   ? "bg-[#1B3A6B] text-white"
                   : step.number === current
-                  ? "bg-[#F2DC8F] text-white"
+                  ? "bg-[#F0AA5A] text-white"
                   : "bg-[#e8e0d8] text-[#6b5e52]"
               )}
             >
@@ -33,7 +33,7 @@ export default function StepIndicator({ current }: { current: number }) {
             <span
               className={cn(
                 "text-xs whitespace-nowrap",
-                step.number === current ? "font-bold text-[#F2DC8F]" : "text-[#6b5e52]"
+                step.number === current ? "font-bold text-[#F0AA5A]" : "text-[#6b5e52]"
               )}
             >
               {step.label}

@@ -36,7 +36,7 @@ export default function HomePage() {
       <div className="bg-[#1B3A6B] text-white px-4 pt-12 pb-10">
         <div className="max-w-md mx-auto text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-[#F2DC8F] rounded-full flex items-center justify-center">
+            <div className="w-16 h-16 bg-[#F0AA5A] rounded-full flex items-center justify-center">
               <ChefHat size={32} className="text-white" />
             </div>
           </div>
@@ -51,7 +51,7 @@ export default function HomePage() {
 
       {/* 3-step flow */}
       <div className="max-w-md mx-auto w-full px-4 py-6">
-        <p className="text-center text-xs font-bold text-[#6b5e52] uppercase tracking-widest mb-4">
+        <p className="text-center text-xs font-bold text-red-600 uppercase tracking-widest mb-4">
           ラクラク 3 ステップ
         </p>
         <div className="grid grid-cols-3 gap-3 mb-8">
@@ -64,7 +64,7 @@ export default function HomePage() {
               key={step}
               className="bg-white rounded-2xl p-4 text-center shadow-sm border border-[#e8e0d8]"
             >
-              <p className="text-xs font-black text-[#F2DC8F] mb-2">STEP {step}</p>
+              <p className="text-xs font-black text-[#F0AA5A] mb-2">STEP {step}</p>
               <Icon size={28} className="mx-auto text-[#1B3A6B] mb-2" />
               <p className="text-xs font-bold text-[#1a1a1a] leading-tight">{label}</p>
             </div>

@@ -50,7 +50,7 @@ export default function MyPage() {
         {/* Profile */}
         <div className="bg-[#1B3A6B] text-white rounded-2xl p-5 mb-4 shadow-md">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-[#F2DC8F] rounded-full flex items-center justify-center text-xl font-black">
+            <div className="w-12 h-12 bg-[#F0AA5A] rounded-full flex items-center justify-center text-xl font-black">
               {user.nickname.charAt(0)}
             </div>
             <div>
@@ -67,7 +67,7 @@ export default function MyPage() {
               { icon: Star, label: "スタンプ", value: stamps, unit: `/${STAMPS_PER_CARD}` },
             ].map(({ icon: Icon, label, value, unit }) => (
               <div key={label} className="bg-white/10 rounded-xl p-3 text-center">
-                <Icon size={16} className="mx-auto mb-1 text-[#F2DC8F]" />
+                <Icon size={16} className="mx-auto mb-1 text-[#F0AA5A]" />
                 <p className="text-xs text-[#A8C8F0]">{label}</p>
                 <p className="font-black text-lg">
                   {value}
@@ -80,7 +80,7 @@ export default function MyPage() {
 
         {/* Free item banner */}
         {freeItemAvailable && (
-          <div className="bg-[#F2DC8F] text-white rounded-2xl p-4 mb-4 flex items-center gap-3 shadow-md">
+          <div className="bg-[#F0AA5A] text-white rounded-2xl p-4 mb-4 flex items-center gap-3 shadow-md">
             <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
               <Gift size={20} />
             </div>
@@ -118,7 +118,7 @@ export default function MyPage() {
                         : "bg-[#f5f0eb] border-2 border-dashed border-[#e8e0d8]"
                     }`}
                   >
-                    {i < stamps && <Star size={14} className="text-[#F2DC8F] fill-[#F2DC8F]" />}
+                    {i < stamps && <Star size={14} className="text-[#F0AA5A] fill-[#F0AA5A]" />}
                     {i === STAMPS_PER_CARD - 1 && i >= stamps && (
                       <Gift size={14} className="text-[#e8e0d8]" />
                     )}
@@ -158,7 +158,7 @@ export default function MyPage() {
               >
                 <Flame
                   size={16}
-                  className={`mx-auto mb-1 ${streak >= milestone ? "text-[#F2DC8F] fill-[#F2DC8F]" : "text-[#e8e0d8]"}`}
+                  className={`mx-auto mb-1 ${streak >= milestone ? "text-[#F0AA5A] fill-[#F0AA5A]" : "text-[#e8e0d8]"}`}
                 />
                 <p className="text-xs font-bold">{milestone}日</p>
               </div>

@@ -12,32 +12,32 @@ export default function Header() {
     <header className="sticky top-0 z-50 bg-[#1B3A6B] text-white shadow-md">
       <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <ChefHat size={22} className="text-[#F2DC8F]" />
+          <ChefHat size={22} className="text-[#F0AA5A]" />
           <span className="font-bold text-base tracking-wide">University Bakery</span>
         </Link>
 
         <nav className="flex items-center gap-4">
           <Link
             href="/menu"
-            className="text-sm font-medium hover:text-[#F2DC8F] transition-colors"
+            className="text-sm font-medium hover:text-[#F0AA5A] transition-colors"
           >
             メニュー
           </Link>
           <Link
             href="/mypage"
-            className="hover:text-[#F2DC8F] transition-colors"
+            className="hover:text-[#F0AA5A] transition-colors"
             aria-label="マイページ"
           >
             <User size={20} />
           </Link>
           <Link
             href="/cart"
-            className="relative hover:text-[#F2DC8F] transition-colors"
+            className="relative hover:text-[#F0AA5A] transition-colors"
             aria-label="カート"
           >
             <ShoppingCart size={20} />
             {totalItems > 0 && (
-              <span className="absolute -top-2 -right-2 bg-[#F2DC8F] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              <span className="absolute -top-2 -right-2 bg-[#F0AA5A] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
                 {totalItems}
               </span>
             )}

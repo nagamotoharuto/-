@@ -280,7 +280,7 @@ export default function ChatWidget() {
       )}
 
       {/* Floating button + speech bubble */}
-      <div className="fixed bottom-20 right-3 z-30 flex flex-col items-end gap-1">
+      <div className="fixed bottom-20 right-3 z-30 flex flex-col items-end gap-4">
         {/* Speech bubble */}
         {!open && (
           <div

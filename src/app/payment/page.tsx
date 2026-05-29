@@ -120,7 +120,7 @@ export default function PaymentPage() {
 
         {/* Free bread banner */}
         {freeItemAvailable && breadItems.length > 0 && (
-          <div className="bg-[#F2DC8F] text-white rounded-2xl p-3 mb-4 flex items-center gap-3">
+          <div className="bg-[#F0AA5A] text-white rounded-2xl p-3 mb-4 flex items-center gap-3">
             <Gift size={20} className="flex-shrink-0" />
             <div>
               <p className="text-sm font-bold">パン1品無料が適用されます！</p>
@@ -144,7 +144,7 @@ export default function PaymentPage() {
               </div>
             ))}
             {freeBreadDiscount > 0 && (
-              <div className="flex justify-between items-center text-[#F2DC8F]">
+              <div className="flex justify-between items-center text-[#F0AA5A]">
                 <span className="text-sm font-bold">パン1品無料割引</span>
                 <span className="text-sm font-bold">-{formatPrice(freeBreadDiscount)}</span>
               </div>
@@ -174,7 +174,7 @@ export default function PaymentPage() {
           <button
             onClick={handleOrder}
             disabled={loading}
-            className="w-full bg-[#F2DC8F] text-white rounded-2xl py-4 flex items-center justify-center gap-2 font-bold text-base shadow-lg hover:bg-[#D4BA5A] transition-colors disabled:opacity-60"
+            className="w-full bg-[#F0AA5A] text-white rounded-2xl py-4 flex items-center justify-center gap-2 font-bold text-base shadow-lg hover:bg-[#D48A30] transition-colors disabled:opacity-60"
           >
             {loading ? "注文中..." : "注文を確定する"}
             {!loading && <ArrowRight size={18} />}

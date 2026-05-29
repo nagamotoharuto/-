@@ -273,7 +273,7 @@ export default function InventoryPage() {
             <ChevronLeft size={20} />
           </Link>
           <div className="flex items-center gap-2">
-            <Package size={18} className="text-[#F2DC8F]" />
+            <Package size={18} className="text-[#F0AA5A]" />
             <span className="font-bold text-sm">商品・在庫管理</span>
           </div>
         </div>
