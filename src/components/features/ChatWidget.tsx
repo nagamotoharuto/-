@@ -185,7 +185,7 @@ export default function ChatWidget() {
                     alt="ノロジー"
                     width={40}
                     height={40}
-                    className="w-full h-full object-contain drop-shadow"
+                    className="w-full h-full object-contain drop-shadow mix-blend-multiply"
                   />
                 </div>
                 <div>
@@ -215,7 +215,7 @@ export default function ChatWidget() {
                         alt="ノロジー"
                         width={32}
                         height={32}
-                        className="w-full h-full object-contain drop-shadow-sm"
+                        className="w-full h-full object-contain drop-shadow-sm mix-blend-multiply"
                       />
                     </div>
                   )}
@@ -319,7 +319,7 @@ export default function ChatWidget() {
               alt="ノロジー"
               width={64}
               height={64}
-              className="object-contain drop-shadow-lg"
+              className="object-contain drop-shadow-lg mix-blend-multiply"
             />
           </div>
         </button>
