@@ -23,8 +23,8 @@ const SUGGESTIONS = ["甘いものが食べたい", "さっぱりしたもの", 
 // Each pattern pairs a bubble message with a different ノロジー image
 const PATTERNS = [
   { message: "おすすめパンをご紹介します！", image: "/noroji.png" },
-  { message: "今日のパン、一緒に選ぼう！",   image: "/noroji02.png" },
-  { message: "何か食べたいものある？",        image: "/noroji03.png" },
+  { message: "今日のパン、一緒に選ぼう！",   image: "/noroji02.webp" },
+  { message: "何か食べたいものある？",        image: "/noroji03.webp" },
 ];
 
 async function typewriter(
