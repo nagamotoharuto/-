@@ -20,11 +20,10 @@ const WELCOME: Message = {
 
 const SUGGESTIONS = ["甘いものが食べたい", "さっぱりしたもの", "お腹いっぱいになりたい"];
 
-// Each pattern pairs a bubble message with a different ノロジー image
-const PATTERNS = [
-  { message: "おすすめパンをご紹介します！", image: "/noroji.png" },
-  { message: "今日のパン、一緒に選ぼう！",   image: "/noroji02.jpg" },
-  { message: "何か食べたいものある？",        image: "/noroji03.jpg" },
+const BUBBLE_MESSAGES = [
+  "おすすめパンをご紹介します！",
+  "今日のパン、一緒に選ぼう！",
+  "何か食べたいものある？",
 ];
 
 async function typewriter(
@@ -51,7 +50,7 @@ export default function ChatWidget() {
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [patternIdx, setPatternIdx] = useState(0);
+  const [bubbleIdx, setBubbleIdx] = useState(0);
   const [bubbleVisible, setBubbleVisible] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,13 +64,12 @@ export default function ChatWidget() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Rotate pattern every 4s when chat is closed
   useEffect(() => {
     if (open) return;
     const id = setInterval(() => {
       setBubbleVisible(false);
       setTimeout(() => {
-        setPatternIdx((i) => (i + 1) % PATTERNS.length);
+        setBubbleIdx((i) => (i + 1) % BUBBLE_MESSAGES.length);
         setBubbleVisible(true);
       }, 300);
     }, 4000);
@@ -79,8 +77,6 @@ export default function ChatWidget() {
   }, [open]);
 
   if (pathname.startsWith("/staff")) return null;
-
-  const currentPattern = PATTERNS[patternIdx];
 
   async function sendMessage(text: string) {
     const trimmed = text.trim();
@@ -294,7 +290,7 @@ export default function ChatWidget() {
           >
             <div className="relative bg-white rounded-2xl rounded-br-sm px-3 py-2 shadow-lg border border-[#e8e0d8] max-w-[180px]">
               <p className="text-xs font-bold text-[#1a1a1a] leading-snug">
-                {currentPattern.message}
+                {BUBBLE_MESSAGES[bubbleIdx]}
               </p>
               <p className="text-[10px] text-[#6b5e52] mt-0.5">ノロジーにきいてみよう</p>
               <div className="absolute -bottom-[7px] right-5 w-0 h-0 border-l-[6px] border-l-transparent border-t-[7px] border-t-white" />
@@ -303,7 +299,7 @@ export default function ChatWidget() {
           </div>
         )}
 
-        {/* ノロジー button — character shape, no circular clip */}
+        {/* ノロジー button */}
         <button
           onClick={() => setOpen(true)}
           className="w-16 h-16 flex items-center justify-center hover:scale-110 transition-all active:scale-95"
@@ -315,7 +311,7 @@ export default function ChatWidget() {
             }`}
           >
             <Image
-              src={currentPattern.image}
+              src="/noroji.png"
               alt="ノロジー"
               width={64}
               height={64}
