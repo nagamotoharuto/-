@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -108,7 +108,7 @@ export default function CartPage() {
         <div className="max-w-md mx-auto">
           <button
             onClick={() => router.push("/time")}
-            className="w-full bg-[#c8843a] text-white rounded-2xl py-4 flex items-center justify-center gap-2 font-bold text-base shadow-lg hover:bg-[#b5722e] transition-colors"
+            className="w-full bg-[#7EC8E3] text-white rounded-2xl py-4 flex items-center justify-center gap-2 font-bold text-base shadow-lg hover:bg-[#5BAFD4] transition-colors"
           >
             受け取り時間を選ぶ
             <ArrowRight size={18} />

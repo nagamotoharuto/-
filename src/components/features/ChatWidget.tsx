@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { MessageCircle, X, Send, ChefHat, Loader2 } from "lucide-react";
+import { X, Send, Loader2 } from "lucide-react";
+import Image from "next/image";
 import { useBakeryStore } from "@/lib/store";
 
 interface Message {
@@ -19,14 +20,19 @@ const WELCOME: Message = {
 
 const SUGGESTIONS = ["甘いものが食べたい", "さっぱりしたもの", "お腹いっぱいになりたい"];
 
-// Typewriter effect: reveal text character by character
+const BUBBLE_MESSAGES = [
+  "おすすめパンをご紹介します！",
+  "今日のパン、一緒に選ぼう！",
+  "何か食べたいものある？",
+];
+
 async function typewriter(
   fullText: string,
   onUpdate: (text: string) => void,
   signal: AbortSignal
 ) {
-  const CHUNK = 4; // characters per tick
-  const DELAY = 25; // ms per tick
+  const CHUNK = 4;
+  const DELAY = 25;
   let displayed = "";
   for (let i = 0; i < fullText.length; i += CHUNK) {
     if (signal.aborted) break;
@@ -44,6 +50,8 @@ export default function ChatWidget() {
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [bubbleIdx, setBubbleIdx] = useState(0);
+  const [bubbleVisible, setBubbleVisible] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -56,14 +64,24 @@ export default function ChatWidget() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Hide on staff pages (after all hooks)
+  useEffect(() => {
+    if (open) return;
+    const id = setInterval(() => {
+      setBubbleVisible(false);
+      setTimeout(() => {
+        setBubbleIdx((i) => (i + 1) % BUBBLE_MESSAGES.length);
+        setBubbleVisible(true);
+      }, 300);
+    }, 4000);
+    return () => clearInterval(id);
+  }, [open]);
+
   if (pathname.startsWith("/staff")) return null;
 
   async function sendMessage(text: string) {
     const trimmed = text.trim();
     if (!trimmed || loading) return;
 
-    // Cancel any in-progress typewriter
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
@@ -99,7 +117,6 @@ export default function ChatWidget() {
         return;
       }
 
-      // Typewriter reveal
       await typewriter(
         data.content,
         (partial) => {
@@ -114,7 +131,6 @@ export default function ChatWidget() {
         ac.signal
       );
 
-      // Mark typing done
       setMessages((prev) =>
         prev.map((m, i) =>
           i === prev.length - 1 ? { ...m, typing: false } : m
@@ -159,12 +175,18 @@ export default function ChatWidget() {
             {/* Header */}
             <div className="bg-[#8B1A2C] text-white px-4 py-3 rounded-t-3xl flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-[#c8843a] rounded-full flex items-center justify-center">
-                  <ChefHat size={16} />
+                <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-white border-2 border-[#7EC8E3]">
+                  <Image
+                    src="/noroji.png"
+                    alt="ノロジー"
+                    width={36}
+                    height={36}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div>
-                  <p className="text-sm font-bold leading-tight">おすすめアシスタント</p>
-                  <p className="text-xs text-[#ffc5ce] leading-tight">AIが在庫から厳選してご提案</p>
+                  <p className="text-sm font-bold leading-tight">ノロジーのおすすめ案内</p>
+                  <p className="text-xs text-[#ffc5ce] leading-tight">ノロジーが在庫から厳選してご提案</p>
                 </div>
               </div>
               <button
@@ -183,8 +205,14 @@ export default function ChatWidget() {
                   className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   {msg.role === "assistant" && (
-                    <div className="w-7 h-7 bg-[#c8843a] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <ChefHat size={13} className="text-white" />
+                    <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 mt-0.5 bg-white border border-[#e8e0d8]">
+                      <Image
+                        src="/noroji.png"
+                        alt="ノロジー"
+                        width={28}
+                        height={28}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                   )}
                   <div
@@ -251,14 +279,42 @@ export default function ChatWidget() {
         </div>
       )}
 
-      {/* Floating button */}
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-24 right-4 z-30 w-14 h-14 bg-[#8B1A2C] text-white rounded-full shadow-lg flex items-center justify-center hover:bg-[#A52340] transition-all active:scale-95"
-        aria-label="おすすめアシスタントを開く"
-      >
-        <MessageCircle size={24} />
-      </button>
+      {/* Floating button + speech bubble */}
+      <div className="fixed bottom-24 right-4 z-30 flex flex-col items-end gap-2">
+        {/* Speech bubble (hidden when chat is open) */}
+        {!open && (
+          <div
+            className={`transition-all duration-300 ${
+              bubbleVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
+            }`}
+          >
+            <div className="relative bg-white rounded-2xl rounded-br-sm px-3 py-2 shadow-lg border border-[#e8e0d8] max-w-[180px]">
+              <p className="text-xs font-bold text-[#1a1a1a] leading-snug">
+                {BUBBLE_MESSAGES[bubbleIdx]}
+              </p>
+              <p className="text-[10px] text-[#6b5e52] mt-0.5">ノロジーにきいてみよう</p>
+              {/* Triangle pointing down-right toward button */}
+              <div className="absolute -bottom-[7px] right-5 w-0 h-0 border-l-[6px] border-l-transparent border-r-[0px] border-r-transparent border-t-[7px] border-t-white" />
+              <div className="absolute -bottom-[8px] right-[19px] w-0 h-0 border-l-[7px] border-l-transparent border-r-[0px] border-r-transparent border-t-[8px] border-t-[#e8e0d8]" style={{ zIndex: -1 }} />
+            </div>
+          </div>
+        )}
+
+        {/* Button */}
+        <button
+          onClick={() => setOpen(true)}
+          className="w-14 h-14 bg-[#8B1A2C] rounded-full shadow-lg flex items-center justify-center hover:bg-[#A52340] transition-all active:scale-95 overflow-hidden border-2 border-[#7EC8E3]"
+          aria-label="ノロジーに相談する"
+        >
+          <Image
+            src="/noroji.png"
+            alt="ノロジー"
+            width={56}
+            height={56}
+            className="w-full h-full object-cover"
+          />
+        </button>
+      </div>
     </>
   );
 }

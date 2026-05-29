@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -120,7 +120,7 @@ export default function PaymentPage() {
 
         {/* Free bread banner */}
         {freeItemAvailable && breadItems.length > 0 && (
-          <div className="bg-[#c8843a] text-white rounded-2xl p-3 mb-4 flex items-center gap-3">
+          <div className="bg-[#7EC8E3] text-white rounded-2xl p-3 mb-4 flex items-center gap-3">
             <Gift size={20} className="flex-shrink-0" />
             <div>
               <p className="text-sm font-bold">パン1品無料が適用されます！</p>
@@ -144,7 +144,7 @@ export default function PaymentPage() {
               </div>
             ))}
             {freeBreadDiscount > 0 && (
-              <div className="flex justify-between items-center text-[#c8843a]">
+              <div className="flex justify-between items-center text-[#7EC8E3]">
                 <span className="text-sm font-bold">パン1品無料割引</span>
                 <span className="text-sm font-bold">-{formatPrice(freeBreadDiscount)}</span>
               </div>
@@ -174,7 +174,7 @@ export default function PaymentPage() {
           <button
             onClick={handleOrder}
             disabled={loading}
-            className="w-full bg-[#c8843a] text-white rounded-2xl py-4 flex items-center justify-center gap-2 font-bold text-base shadow-lg hover:bg-[#b5722e] transition-colors disabled:opacity-60"
+            className="w-full bg-[#7EC8E3] text-white rounded-2xl py-4 flex items-center justify-center gap-2 font-bold text-base shadow-lg hover:bg-[#5BAFD4] transition-colors disabled:opacity-60"
           >
             {loading ? "注文中..." : "注文を確定する"}
             {!loading && <ArrowRight size={18} />}

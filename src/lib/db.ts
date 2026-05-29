@@ -18,6 +18,16 @@ function createClient(): PrismaClient {
   return new PrismaClient({ adapter } as any);
 }
 
-export const db = globalForPrisma.prisma ?? createClient();
+function getInstance(): PrismaClient {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createClient();
+  }
+  return globalForPrisma.prisma;
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+// Lazy proxy: client is created on first access (request time), not at module load (build time)
+export const db = new Proxy({} as PrismaClient, {
+  get(_, prop: string | symbol) {
+    return (getInstance() as any)[prop];
+  },
+});

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -92,7 +92,7 @@ export default function StaffDashboardPage() {
       {/* Staff header */}
       <header className="bg-[#8B1A2C] text-white px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <ChefHat size={20} className="text-[#c8843a]" />
+          <ChefHat size={20} className="text-[#7EC8E3]" />
           <span className="font-bold text-sm">スタッフ管理画面</span>
         </div>
         <div className="flex items-center gap-3">

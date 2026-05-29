@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -40,7 +40,7 @@ export default function StaffLoginPage() {
     <div className="min-h-screen bg-[#8B1A2C] flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-[#c8843a] rounded-full flex items-center justify-center mx-auto mb-3">
+          <div className="w-16 h-16 bg-[#7EC8E3] rounded-full flex items-center justify-center mx-auto mb-3">
             <ChefHat size={32} className="text-white" />
           </div>
           <h1 className="text-white text-xl font-black">スタッフ管理画面</h1>

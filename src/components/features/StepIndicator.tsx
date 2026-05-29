@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+﻿import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 
 interface Step {
@@ -24,7 +24,7 @@ export default function StepIndicator({ current }: { current: number }) {
                 step.number < current
                   ? "bg-[#8B1A2C] text-white"
                   : step.number === current
-                  ? "bg-[#c8843a] text-white"
+                  ? "bg-[#7EC8E3] text-white"
                   : "bg-[#e8e0d8] text-[#6b5e52]"
               )}
             >
@@ -33,7 +33,7 @@ export default function StepIndicator({ current }: { current: number }) {
             <span
               className={cn(
                 "text-xs whitespace-nowrap",
-                step.number === current ? "font-bold text-[#c8843a]" : "text-[#6b5e52]"
+                step.number === current ? "font-bold text-[#7EC8E3]" : "text-[#6b5e52]"
               )}
             >
               {step.label}
