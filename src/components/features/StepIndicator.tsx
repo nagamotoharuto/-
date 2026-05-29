@@ -22,9 +22,9 @@ export default function StepIndicator({ current }: { current: number }) {
               className={cn(
                 "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors",
                 step.number < current
-                  ? "bg-[#8B1A2C] text-white"
+                  ? "bg-[#1B3A6B] text-white"
                   : step.number === current
-                  ? "bg-[#F0DC00] text-white"
+                  ? "bg-[#F2DC8F] text-white"
                   : "bg-[#e8e0d8] text-[#6b5e52]"
               )}
             >
@@ -33,7 +33,7 @@ export default function StepIndicator({ current }: { current: number }) {
             <span
               className={cn(
                 "text-xs whitespace-nowrap",
-                step.number === current ? "font-bold text-[#F0DC00]" : "text-[#6b5e52]"
+                step.number === current ? "font-bold text-[#F2DC8F]" : "text-[#6b5e52]"
               )}
             >
               {step.label}
@@ -43,7 +43,7 @@ export default function StepIndicator({ current }: { current: number }) {
             <div
               className={cn(
                 "h-0.5 w-12 mx-1 mb-5",
-                step.number < current ? "bg-[#8B1A2C]" : "bg-[#e8e0d8]"
+                step.number < current ? "bg-[#1B3A6B]" : "bg-[#e8e0d8]"
               )}
             />
           )}

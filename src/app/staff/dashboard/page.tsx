@@ -90,21 +90,21 @@ export default function StaffDashboardPage() {
   return (
     <div className="min-h-screen bg-[#fdf8f3]">
       {/* Staff header */}
-      <header className="bg-[#8B1A2C] text-white px-4 py-3 flex items-center justify-between">
+      <header className="bg-[#1B3A6B] text-white px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <ChefHat size={20} className="text-[#F0DC00]" />
+          <ChefHat size={20} className="text-[#F2DC8F]" />
           <span className="font-bold text-sm">スタッフ管理画面</span>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/staff/inventory" className="text-xs text-[#ffc5ce] hover:text-white flex items-center gap-1">
+          <Link href="/staff/inventory" className="text-xs text-[#A8C8F0] hover:text-white flex items-center gap-1">
             <Package size={14} />
             在庫
           </Link>
-          <Link href="/" className="text-xs text-[#ffc5ce] hover:text-white flex items-center gap-1">
+          <Link href="/" className="text-xs text-[#A8C8F0] hover:text-white flex items-center gap-1">
             <Home size={14} />
             ホーム
           </Link>
-          <button onClick={logout} className="text-xs text-[#ffc5ce] hover:text-white flex items-center gap-1">
+          <button onClick={logout} className="text-xs text-[#A8C8F0] hover:text-white flex items-center gap-1">
             <LogOut size={14} />
             ログアウト
           </button>
@@ -149,7 +149,7 @@ export default function StaffDashboardPage() {
               onClick={() => setFilter(f.value)}
               className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
                 filter === f.value
-                  ? "bg-[#8B1A2C] text-white"
+                  ? "bg-[#1B3A6B] text-white"
                   : "bg-white text-[#6b5e52] border border-[#e8e0d8]"
               }`}
             >
@@ -180,7 +180,7 @@ export default function StaffDashboardPage() {
                 <div className="px-4 pt-4 pb-3 border-b border-[#e8e0d8]">
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-xl font-black text-[#8B1A2C]">#{order.orderNumber}</span>
+                      <span className="text-xl font-black text-[#1B3A6B]">#{order.orderNumber}</span>
                       <span
                         className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_COLORS[order.status]}`}
                       >
@@ -194,7 +194,7 @@ export default function StaffDashboardPage() {
                     <span>|</span>
                     <span>{PAYMENT_LABELS[order.paymentMethod]}</span>
                     <span>|</span>
-                    <span className="font-bold text-[#8B1A2C]">{formatPrice(order.totalAmount)}</span>
+                    <span className="font-bold text-[#1B3A6B]">{formatPrice(order.totalAmount)}</span>
                   </div>
                 </div>
                 <div className="px-4 py-2 text-xs text-[#6b5e52]">
@@ -226,7 +226,7 @@ export default function StaffDashboardPage() {
                   {order.status === "ready" && (
                     <button
                       onClick={() => updateStatus(order.id, "completed")}
-                      className="flex-1 bg-[#8B1A2C] text-white text-xs font-bold py-2 rounded-xl hover:bg-[#A52340] transition-colors"
+                      className="flex-1 bg-[#1B3A6B] text-white text-xs font-bold py-2 rounded-xl hover:bg-[#2E5BA8] transition-colors"
                     >
                       受け渡し完了
                     </button>

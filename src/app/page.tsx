@@ -33,15 +33,15 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#fdf8f3] flex flex-col pb-20">
       {/* Hero */}
-      <div className="bg-[#8B1A2C] text-white px-4 pt-12 pb-10">
+      <div className="bg-[#1B3A6B] text-white px-4 pt-12 pb-10">
         <div className="max-w-md mx-auto text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-[#F0DC00] rounded-full flex items-center justify-center">
+            <div className="w-16 h-16 bg-[#F2DC8F] rounded-full flex items-center justify-center">
               <ChefHat size={32} className="text-white" />
             </div>
           </div>
           <h1 className="text-2xl font-black tracking-wide mb-1">University Bakery</h1>
-          <p className="text-sm text-[#ffc5ce] mb-4">事前予約サービス</p>
+          <p className="text-sm text-[#A8C8F0] mb-4">事前予約サービス</p>
           <div className="flex items-center justify-center gap-2 text-xs bg-white/10 rounded-lg px-4 py-2">
             <MapPin size={12} />
             <span>1F 正面玄関前　営業時間 11:00〜15:00</span>
@@ -64,8 +64,8 @@ export default function HomePage() {
               key={step}
               className="bg-white rounded-2xl p-4 text-center shadow-sm border border-[#e8e0d8]"
             >
-              <p className="text-xs font-black text-[#F0DC00] mb-2">STEP {step}</p>
-              <Icon size={28} className="mx-auto text-[#8B1A2C] mb-2" />
+              <p className="text-xs font-black text-[#F2DC8F] mb-2">STEP {step}</p>
+              <Icon size={28} className="mx-auto text-[#1B3A6B] mb-2" />
               <p className="text-xs font-bold text-[#1a1a1a] leading-tight">{label}</p>
             </div>
           ))}
@@ -88,7 +88,7 @@ export default function HomePage() {
               }}
               placeholder="例：たろう"
               maxLength={20}
-              className="w-full border border-[#e8e0d8] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] bg-[#fdf8f3]"
+              className="w-full border border-[#e8e0d8] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B3A6B] bg-[#fdf8f3]"
             />
             {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
           </div>
@@ -102,8 +102,8 @@ export default function HomePage() {
                   onClick={() => setUserType(t.value)}
                   className={`py-2.5 rounded-xl text-sm font-bold border transition-colors ${
                     userType === t.value
-                      ? "bg-[#8B1A2C] text-white border-[#8B1A2C]"
-                      : "bg-white text-[#1a1a1a] border-[#e8e0d8] hover:border-[#8B1A2C]"
+                      ? "bg-[#1B3A6B] text-white border-[#1B3A6B]"
+                      : "bg-white text-[#1a1a1a] border-[#e8e0d8] hover:border-[#1B3A6B]"
                   }`}
                 >
                   {t.label}
@@ -114,7 +114,7 @@ export default function HomePage() {
 
           <button
             onClick={handleStart}
-            className="w-full bg-[#8B1A2C] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 text-base hover:bg-[#A52340] transition-colors active:scale-95"
+            className="w-full bg-[#1B3A6B] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 text-base hover:bg-[#2E5BA8] transition-colors active:scale-95"
           >
             メニューを見る
             <ArrowRight size={18} />
@@ -128,7 +128,7 @@ export default function HomePage() {
         <div className="mt-8 flex justify-center">
           <Link
             href="/staff"
-            className="flex items-center gap-1.5 text-xs text-[#6b5e52] hover:text-[#8B1A2C] transition-colors py-2 px-4 rounded-xl hover:bg-[#e8e0d8]"
+            className="flex items-center gap-1.5 text-xs text-[#6b5e52] hover:text-[#1B3A6B] transition-colors py-2 px-4 rounded-xl hover:bg-[#e8e0d8]"
           >
             <Lock size={12} />
             スタッフ管理画面

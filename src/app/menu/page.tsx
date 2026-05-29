@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -67,7 +67,7 @@ export default function MenuPage() {
               onClick={() => setCategory(c.value)}
               className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-colors ${
                 category === c.value
-                  ? "bg-[#8B1A2C] text-white"
+                  ? "bg-[#1B3A6B] text-white"
                   : "bg-white text-[#6b5e52] border border-[#e8e0d8]"
               }`}
             >
@@ -97,7 +97,7 @@ export default function MenuPage() {
           <div className="max-w-md mx-auto">
             <button
               onClick={() => router.push("/cart")}
-              className="w-full bg-[#8B1A2C] text-white rounded-2xl py-4 flex items-center justify-between px-5 shadow-lg hover:bg-[#A52340] transition-colors"
+              className="w-full bg-[#1B3A6B] text-white rounded-2xl py-4 flex items-center justify-between px-5 shadow-lg hover:bg-[#2E5BA8] transition-colors"
             >
               <div className="flex items-center gap-2">
                 <ShoppingCart size={18} />

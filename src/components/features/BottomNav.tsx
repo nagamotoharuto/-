@@ -29,13 +29,13 @@ export default function BottomNav() {
               href={href}
               className={cn(
                 "flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors",
-                isActive ? "text-[#8B1A2C]" : "text-[#6b5e52]"
+                isActive ? "text-[#1B3A6B]" : "text-[#6b5e52]"
               )}
             >
               <div className="relative">
                 <Icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />
                 {showBadge && totalItems > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-[#F0DC00] text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold leading-none">
+                  <span className="absolute -top-2 -right-2 bg-[#F2DC8F] text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold leading-none">
                     {totalItems > 9 ? "9+" : totalItems}
                   </span>
                 )}

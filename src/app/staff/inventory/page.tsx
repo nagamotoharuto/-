@@ -139,18 +139,18 @@ function ImageUploadZone({
         onDrop={onDrop}
         className={`w-full border-2 border-dashed rounded-xl py-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${
           dragging
-            ? "border-[#8B1A2C] bg-[#8B1A2C]/5"
-            : "border-[#e8e0d8] hover:border-[#8B1A2C] hover:bg-[#8B1A2C]/5"
+            ? "border-[#1B3A6B] bg-[#1B3A6B]/5"
+            : "border-[#e8e0d8] hover:border-[#1B3A6B] hover:bg-[#1B3A6B]/5"
         }`}
       >
         {uploading ? (
           <>
-            <div className="w-6 h-6 border-2 border-[#8B1A2C] border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-[#1B3A6B] border-t-transparent rounded-full animate-spin" />
             <p className="text-xs text-[#6b5e52]">アップロード中...</p>
           </>
         ) : (
           <>
-            <Upload size={22} className={dragging ? "text-[#8B1A2C]" : "text-[#6b5e52]"} />
+            <Upload size={22} className={dragging ? "text-[#1B3A6B]" : "text-[#6b5e52]"} />
             <p className="text-xs font-bold text-[#6b5e52] text-center">
               クリックまたはドラッグ＆ドロップ
             </p>
@@ -267,24 +267,24 @@ export default function InventoryPage() {
 
   return (
     <div className="min-h-screen bg-[#fdf8f3]">
-      <header className="bg-[#8B1A2C] text-white px-4 py-3 flex items-center justify-between">
+      <header className="bg-[#1B3A6B] text-white px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/staff/dashboard" className="text-[#ffc5ce] hover:text-white">
+          <Link href="/staff/dashboard" className="text-[#A8C8F0] hover:text-white">
             <ChevronLeft size={20} />
           </Link>
           <div className="flex items-center gap-2">
-            <Package size={18} className="text-[#F0DC00]" />
+            <Package size={18} className="text-[#F2DC8F]" />
             <span className="font-bold text-sm">商品・在庫管理</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-1 text-xs text-[#ffc5ce] hover:text-white">
+          <Link href="/" className="flex items-center gap-1 text-xs text-[#A8C8F0] hover:text-white">
             <Home size={14} />
             ホーム
           </Link>
           <button
             onClick={loadProducts}
-            className="flex items-center gap-1 text-xs text-[#ffc5ce] hover:text-white"
+            className="flex items-center gap-1 text-xs text-[#A8C8F0] hover:text-white"
           >
             <RefreshCw size={14} />
             更新
@@ -313,7 +313,7 @@ export default function InventoryPage() {
             return (
               <div key={cat} className="mb-6">
                 <h2 className="font-bold text-[#1a1a1a] mb-3 flex items-center gap-2">
-                  <span className="w-1 h-5 bg-[#8B1A2C] rounded-full inline-block" />
+                  <span className="w-1 h-5 bg-[#1B3A6B] rounded-full inline-block" />
                   {CATEGORY_LABELS[cat]}
                 </h2>
                 <div className="flex flex-col gap-3">
@@ -361,7 +361,7 @@ export default function InventoryPage() {
                                       Math.max(0, parseInt(e.target.value) || 0)
                                     )
                                   }
-                                  className="w-14 border border-[#e8e0d8] rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-[#8B1A2C]"
+                                  className="w-14 border border-[#e8e0d8] rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-[#1B3A6B]"
                                 />
                               </div>
                               <button
@@ -371,13 +371,13 @@ export default function InventoryPage() {
                                 className="flex items-center gap-0.5"
                               >
                                 {edit.isAvailable ? (
-                                  <ToggleRight size={20} className="text-[#8B1A2C]" />
+                                  <ToggleRight size={20} className="text-[#1B3A6B]" />
                                 ) : (
                                   <ToggleLeft size={20} className="text-[#e8e0d8]" />
                                 )}
                                 <span
                                   className={`text-xs font-bold ${
-                                    edit.isAvailable ? "text-[#8B1A2C]" : "text-[#6b5e52]"
+                                    edit.isAvailable ? "text-[#1B3A6B]" : "text-[#6b5e52]"
                                   }`}
                                 >
                                   {edit.isAvailable ? "販売中" : "停止中"}
@@ -391,7 +391,7 @@ export default function InventoryPage() {
                               className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
                                 isOpen
                                   ? "bg-[#f5f0eb] text-[#6b5e52] border-[#e8e0d8]"
-                                  : "bg-white text-[#8B1A2C] border-[#8B1A2C] hover:bg-[#8B1A2C] hover:text-white"
+                                  : "bg-white text-[#1B3A6B] border-[#1B3A6B] hover:bg-[#1B3A6B] hover:text-white"
                               }`}
                             >
                               {isOpen ? <X size={12} /> : <Pencil size={12} />}
@@ -401,7 +401,7 @@ export default function InventoryPage() {
                               <button
                                 onClick={() => saveProduct(product)}
                                 disabled={saving === product.id}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#8B1A2C] text-white rounded-xl text-xs font-bold hover:bg-[#A52340] transition-colors disabled:opacity-60"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-[#1B3A6B] text-white rounded-xl text-xs font-bold hover:bg-[#2E5BA8] transition-colors disabled:opacity-60"
                               >
                                 <Save size={12} />
                                 {saving === product.id ? "保存中" : "保存"}
@@ -431,7 +431,7 @@ export default function InventoryPage() {
                                 value={edit.name}
                                 onChange={(e) => updateEdit(product.id, "name", e.target.value)}
                                 maxLength={50}
-                                className="w-full border border-[#e8e0d8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] bg-white"
+                                className="w-full border border-[#e8e0d8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B3A6B] bg-white"
                               />
                             </div>
 
@@ -452,7 +452,7 @@ export default function InventoryPage() {
                                   onChange={(e) =>
                                     updateEdit(product.id, "price", e.target.value)
                                   }
-                                  className="w-full border border-[#e8e0d8] rounded-xl px-3 py-2 pl-7 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] bg-white"
+                                  className="w-full border border-[#e8e0d8] rounded-xl px-3 py-2 pl-7 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B3A6B] bg-white"
                                 />
                               </div>
                             </div>
@@ -481,7 +481,7 @@ export default function InventoryPage() {
                                 }
                                 maxLength={100}
                                 rows={2}
-                                className="w-full border border-[#e8e0d8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] bg-white resize-none"
+                                className="w-full border border-[#e8e0d8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B3A6B] bg-white resize-none"
                               />
                             </div>
 
@@ -496,7 +496,7 @@ export default function InventoryPage() {
                               <button
                                 onClick={() => saveProduct(product)}
                                 disabled={saving === product.id || !dirty}
-                                className="flex-1 bg-[#8B1A2C] text-white rounded-xl py-2.5 text-sm font-bold flex items-center justify-center gap-1 hover:bg-[#A52340] transition-colors disabled:opacity-60"
+                                className="flex-1 bg-[#1B3A6B] text-white rounded-xl py-2.5 text-sm font-bold flex items-center justify-center gap-1 hover:bg-[#2E5BA8] transition-colors disabled:opacity-60"
                               >
                                 <Save size={14} />
                                 {saving === product.id ? "保存中..." : "保存する"}
