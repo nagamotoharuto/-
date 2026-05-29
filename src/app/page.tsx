@@ -36,7 +36,7 @@ export default function HomePage() {
       <div className="bg-[#8B1A2C] text-white px-4 pt-12 pb-10">
         <div className="max-w-md mx-auto text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-[#7EC8E3] rounded-full flex items-center justify-center">
+            <div className="w-16 h-16 bg-[#F0DC00] rounded-full flex items-center justify-center">
               <ChefHat size={32} className="text-white" />
             </div>
           </div>
@@ -64,7 +64,7 @@ export default function HomePage() {
               key={step}
               className="bg-white rounded-2xl p-4 text-center shadow-sm border border-[#e8e0d8]"
             >
-              <p className="text-xs font-black text-[#7EC8E3] mb-2">STEP {step}</p>
+              <p className="text-xs font-black text-[#F0DC00] mb-2">STEP {step}</p>
               <Icon size={28} className="mx-auto text-[#8B1A2C] mb-2" />
               <p className="text-xs font-bold text-[#1a1a1a] leading-tight">{label}</p>
             </div>

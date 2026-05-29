@@ -76,7 +76,7 @@ export default function ConfirmPage() {
     <div className="min-h-screen bg-[#8B1A2C] flex flex-col pb-20">
       {/* Starbucks-style confirmation header */}
       <div className="flex-shrink-0 px-4 pt-12 pb-8 text-center text-white">
-        <CheckCircle size={56} className="mx-auto mb-4 text-[#7EC8E3]" strokeWidth={1.5} />
+        <CheckCircle size={56} className="mx-auto mb-4 text-[#F0DC00]" strokeWidth={1.5} />
         <p className="text-sm text-[#ffc5ce] mb-1">注文を承りました</p>
         <h1 className="text-xl font-black mb-2">
           {order.nickname}さんのご来店を<br />お待ちしています
@@ -90,7 +90,7 @@ export default function ConfirmPage() {
       {/* Pickup time - big display */}
       <div className="mx-4 bg-white/10 rounded-2xl p-4 mb-3 text-white text-center">
         <div className="flex items-center justify-center gap-2 mb-1">
-          <Clock size={16} className="text-[#7EC8E3]" />
+          <Clock size={16} className="text-[#F0DC00]" />
           <span className="text-xs text-[#ffc5ce]">受け取り時間</span>
         </div>
         <p className="text-4xl font-black">{order.pickupTime}</p>

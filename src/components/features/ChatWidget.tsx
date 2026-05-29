@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -20,10 +20,11 @@ const WELCOME: Message = {
 
 const SUGGESTIONS = ["甘いものが食べたい", "さっぱりしたもの", "お腹いっぱいになりたい"];
 
-const BUBBLE_MESSAGES = [
-  "おすすめパンをご紹介します！",
-  "今日のパン、一緒に選ぼう！",
-  "何か食べたいものある？",
+// Each pattern pairs a bubble message with a different ノロジー image
+const PATTERNS = [
+  { message: "おすすめパンをご紹介します！", image: "/noroji.png" },
+  { message: "今日のパン、一緒に選ぼう！",   image: "/noroji02.png" },
+  { message: "何か食べたいものある？",        image: "/noroji03.png" },
 ];
 
 async function typewriter(
@@ -50,7 +51,7 @@ export default function ChatWidget() {
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [bubbleIdx, setBubbleIdx] = useState(0);
+  const [patternIdx, setPatternIdx] = useState(0);
   const [bubbleVisible, setBubbleVisible] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -64,12 +65,13 @@ export default function ChatWidget() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Rotate pattern every 4s when chat is closed
   useEffect(() => {
     if (open) return;
     const id = setInterval(() => {
       setBubbleVisible(false);
       setTimeout(() => {
-        setBubbleIdx((i) => (i + 1) % BUBBLE_MESSAGES.length);
+        setPatternIdx((i) => (i + 1) % PATTERNS.length);
         setBubbleVisible(true);
       }, 300);
     }, 4000);
@@ -77,6 +79,8 @@ export default function ChatWidget() {
   }, [open]);
 
   if (pathname.startsWith("/staff")) return null;
+
+  const currentPattern = PATTERNS[patternIdx];
 
   async function sendMessage(text: string) {
     const trimmed = text.trim();
@@ -175,13 +179,13 @@ export default function ChatWidget() {
             {/* Header */}
             <div className="bg-[#8B1A2C] text-white px-4 py-3 rounded-t-3xl flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-white border-2 border-[#7EC8E3]">
+                <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
                   <Image
                     src="/noroji.png"
                     alt="ノロジー"
-                    width={36}
-                    height={36}
-                    className="w-full h-full object-cover"
+                    width={40}
+                    height={40}
+                    className="w-full h-full object-contain drop-shadow"
                   />
                 </div>
                 <div>
@@ -205,13 +209,13 @@ export default function ChatWidget() {
                   className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   {msg.role === "assistant" && (
-                    <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 mt-0.5 bg-white border border-[#e8e0d8]">
+                    <div className="w-8 h-8 flex items-center justify-center flex-shrink-0 mt-0.5">
                       <Image
                         src="/noroji.png"
                         alt="ノロジー"
-                        width={28}
-                        height={28}
-                        className="w-full h-full object-cover"
+                        width={32}
+                        height={32}
+                        className="w-full h-full object-contain drop-shadow-sm"
                       />
                     </div>
                   )}
@@ -280,8 +284,8 @@ export default function ChatWidget() {
       )}
 
       {/* Floating button + speech bubble */}
-      <div className="fixed bottom-24 right-4 z-30 flex flex-col items-end gap-2">
-        {/* Speech bubble (hidden when chat is open) */}
+      <div className="fixed bottom-20 right-3 z-30 flex flex-col items-end gap-1">
+        {/* Speech bubble */}
         {!open && (
           <div
             className={`transition-all duration-300 ${
@@ -290,29 +294,34 @@ export default function ChatWidget() {
           >
             <div className="relative bg-white rounded-2xl rounded-br-sm px-3 py-2 shadow-lg border border-[#e8e0d8] max-w-[180px]">
               <p className="text-xs font-bold text-[#1a1a1a] leading-snug">
-                {BUBBLE_MESSAGES[bubbleIdx]}
+                {currentPattern.message}
               </p>
               <p className="text-[10px] text-[#6b5e52] mt-0.5">ノロジーにきいてみよう</p>
-              {/* Triangle pointing down-right toward button */}
-              <div className="absolute -bottom-[7px] right-5 w-0 h-0 border-l-[6px] border-l-transparent border-r-[0px] border-r-transparent border-t-[7px] border-t-white" />
-              <div className="absolute -bottom-[8px] right-[19px] w-0 h-0 border-l-[7px] border-l-transparent border-r-[0px] border-r-transparent border-t-[8px] border-t-[#e8e0d8]" style={{ zIndex: -1 }} />
+              <div className="absolute -bottom-[7px] right-5 w-0 h-0 border-l-[6px] border-l-transparent border-t-[7px] border-t-white" />
+              <div className="absolute -bottom-[8px] right-[19px] w-0 h-0 border-l-[7px] border-l-transparent border-t-[8px] border-t-[#e8e0d8]" style={{ zIndex: -1 }} />
             </div>
           </div>
         )}
 
-        {/* Button */}
+        {/* ノロジー button — character shape, no circular clip */}
         <button
           onClick={() => setOpen(true)}
-          className="w-14 h-14 bg-[#8B1A2C] rounded-full shadow-lg flex items-center justify-center hover:bg-[#A52340] transition-all active:scale-95 overflow-hidden border-2 border-[#7EC8E3]"
+          className="w-16 h-16 flex items-center justify-center hover:scale-110 transition-all active:scale-95"
           aria-label="ノロジーに相談する"
         >
-          <Image
-            src="/noroji.png"
-            alt="ノロジー"
-            width={56}
-            height={56}
-            className="w-full h-full object-cover"
-          />
+          <div
+            className={`transition-all duration-300 ${
+              bubbleVisible ? "opacity-100 scale-100" : "opacity-80 scale-95"
+            }`}
+          >
+            <Image
+              src={currentPattern.image}
+              alt="ノロジー"
+              width={64}
+              height={64}
+              className="object-contain drop-shadow-lg"
+            />
+          </div>
         </button>
       </div>
     </>

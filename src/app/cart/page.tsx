@@ -108,7 +108,7 @@ export default function CartPage() {
         <div className="max-w-md mx-auto">
           <button
             onClick={() => router.push("/time")}
-            className="w-full bg-[#7EC8E3] text-white rounded-2xl py-4 flex items-center justify-center gap-2 font-bold text-base shadow-lg hover:bg-[#5BAFD4] transition-colors"
+            className="w-full bg-[#F0DC00] text-white rounded-2xl py-4 flex items-center justify-center gap-2 font-bold text-base shadow-lg hover:bg-[#C8B800] transition-colors"
           >
             受け取り時間を選ぶ
             <ArrowRight size={18} />
