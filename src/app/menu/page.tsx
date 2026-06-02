@@ -42,7 +42,7 @@ export default function MenuPage() {
     }
     fetch("/api/products")
       .then((r) => r.json())
-      .then(setProducts)
+      .then((data) => setProducts(Array.isArray(data) ? data : []))
       .finally(() => setLoading(false));
   }, [user, router]);
 
