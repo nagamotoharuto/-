@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev -p 8000",
     "build": "prisma generate && next build",
-    "start": "prisma migrate deploy && next start",
+    "start": "node -e \"if(process.env.DATABASE_URL){require('child_process').execSync('npx prisma migrate deploy',{stdio:'inherit'})}\" && next start",
     "lint": "eslint"
   },
   "dependencies": {
