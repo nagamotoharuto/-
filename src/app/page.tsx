@@ -17,23 +17,28 @@ const USER_TYPES = [
 export default function HomePage() {
   const router = useRouter();
   const { user, setUser } = useBakeryStore();
-  const [nickname, setNickname] = useState(user?.nickname ?? "");
+  const [studentId, setStudentId] = useState("");
+  const [fullName, setFullName] = useState("");
   const [userType, setUserType] = useState(user?.userType ?? "student");
   const [error, setError] = useState("");
 
   function handleStart() {
-    if (!nickname.trim()) {
-      setError("ニックネームを入力してください");
+    if (!studentId.trim()) {
+      setError("学籍番号を入力してください");
       return;
     }
-    setUser({ nickname: nickname.trim(), userType });
+    if (!fullName.trim()) {
+      setError("フルネーム（カタカナ）を入力してください");
+      return;
+    }
+    setUser({ nickname: `${studentId.trim()} ${fullName.trim()}`, userType });
     router.push("/menu");
   }
 
   return (
     <div className="min-h-screen bg-[#fdf8f3] flex flex-col pb-20">
       {/* Hero */}
-      <div className="bg-[#1B3A6B] text-white px-4 pt-12 pb-10">
+      <div className="bg-[#8B1A2C] text-white px-4 pt-12 pb-10">
         <div className="max-w-md mx-auto text-center">
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 bg-[#F0AA5A] rounded-full flex items-center justify-center">
@@ -65,7 +70,7 @@ export default function HomePage() {
               className="bg-white rounded-2xl p-4 text-center shadow-sm border border-[#e8e0d8]"
             >
               <p className="text-xs font-black text-[#F0AA5A] mb-2">STEP {step}</p>
-              <Icon size={28} className="mx-auto text-[#1B3A6B] mb-2" />
+              <Icon size={28} className="mx-auto text-[#8B1A2C] mb-2" />
               <p className="text-xs font-bold text-[#1a1a1a] leading-tight">{label}</p>
             </div>
           ))}
@@ -75,20 +80,37 @@ export default function HomePage() {
         <div className="bg-white rounded-2xl shadow-sm border border-[#e8e0d8] p-6">
           <h2 className="text-base font-bold mb-4 text-[#1a1a1a]">はじめに教えてください</h2>
 
-          <div className="mb-4">
+          <div className="mb-3">
             <label className="block text-xs font-bold text-[#6b5e52] mb-1">
-              ニックネーム
+              学籍番号
             </label>
             <input
               type="text"
-              value={nickname}
+              value={studentId}
               onChange={(e) => {
-                setNickname(e.target.value);
+                setStudentId(e.target.value);
                 setError("");
               }}
-              placeholder="例：たろう"
+              placeholder="例：A1234567"
               maxLength={20}
-              className="w-full border border-[#e8e0d8] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B3A6B] bg-[#fdf8f3]"
+              className="w-full border border-[#e8e0d8] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] bg-[#fdf8f3]"
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-xs font-bold text-[#6b5e52] mb-1">
+              フルネーム（カタカナ）
+            </label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => {
+                setFullName(e.target.value);
+                setError("");
+              }}
+              placeholder="例：ヤマダ タロウ"
+              maxLength={30}
+              className="w-full border border-[#e8e0d8] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] bg-[#fdf8f3]"
             />
             {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
           </div>
@@ -102,8 +124,8 @@ export default function HomePage() {
                   onClick={() => setUserType(t.value)}
                   className={`py-2.5 rounded-xl text-sm font-bold border transition-colors ${
                     userType === t.value
-                      ? "bg-[#1B3A6B] text-white border-[#1B3A6B]"
-                      : "bg-white text-[#1a1a1a] border-[#e8e0d8] hover:border-[#1B3A6B]"
+                      ? "bg-[#8B1A2C] text-white border-[#8B1A2C]"
+                      : "bg-white text-[#1a1a1a] border-[#e8e0d8] hover:border-[#8B1A2C]"
                   }`}
                 >
                   {t.label}
@@ -114,7 +136,7 @@ export default function HomePage() {
 
           <button
             onClick={handleStart}
-            className="w-full bg-[#1B3A6B] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 text-base hover:bg-[#2E5BA8] transition-colors active:scale-95"
+            className="w-full bg-[#8B1A2C] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 text-base hover:bg-[#A52235] transition-colors active:scale-95"
           >
             メニューを見る
             <ArrowRight size={18} />
@@ -128,7 +150,7 @@ export default function HomePage() {
         <div className="mt-8 flex justify-center">
           <Link
             href="/staff"
-            className="flex items-center gap-1.5 text-xs text-[#6b5e52] hover:text-[#1B3A6B] transition-colors py-2 px-4 rounded-xl hover:bg-[#e8e0d8]"
+            className="flex items-center gap-1.5 text-xs text-[#6b5e52] hover:text-[#8B1A2C] transition-colors py-2 px-4 rounded-xl hover:bg-[#e8e0d8]"
           >
             <Lock size={12} />
             スタッフ管理画面

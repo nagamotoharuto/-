@@ -29,7 +29,7 @@ export default function BottomNav() {
               href={href}
               className={cn(
                 "flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors",
-                isActive ? "text-[#1B3A6B]" : "text-[#6b5e52]"
+                isActive ? "text-[#8B1A2C]" : "text-[#6b5e52]"
               )}
             >
               <div className="relative">

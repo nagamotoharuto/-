@@ -91,13 +91,13 @@ export default function PaymentPage() {
               onClick={() => setSelected(id)}
               className={cn(
                 "bg-white rounded-2xl border-2 p-4 flex items-center gap-4 text-left transition-colors",
-                selected === id ? "border-[#1B3A6B]" : "border-[#e8e0d8]"
+                selected === id ? "border-[#8B1A2C]" : "border-[#e8e0d8]"
               )}
             >
               <div
                 className={cn(
                   "w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0",
-                  selected === id ? "bg-[#1B3A6B]" : "bg-[#f5f0eb]"
+                  selected === id ? "bg-[#8B1A2C]" : "bg-[#f5f0eb]"
                 )}
               >
                 <Icon size={22} className={selected === id ? "text-white" : "text-[#6b5e52]"} />
@@ -109,7 +109,7 @@ export default function PaymentPage() {
               <div
                 className={cn(
                   "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0",
-                  selected === id ? "border-[#1B3A6B] bg-[#1B3A6B]" : "border-[#e8e0d8]"
+                  selected === id ? "border-[#8B1A2C] bg-[#8B1A2C]" : "border-[#e8e0d8]"
                 )}
               >
                 {selected === id && <div className="w-2 h-2 bg-white rounded-full" />}
@@ -152,12 +152,12 @@ export default function PaymentPage() {
           </div>
           <div className="border-t border-[#e8e0d8] pt-3 flex justify-between items-center">
             <span className="font-bold">合計</span>
-            <span className="text-xl font-black text-[#1B3A6B]">{formatPrice(displayTotal)}</span>
+            <span className="text-xl font-black text-[#8B1A2C]">{formatPrice(displayTotal)}</span>
           </div>
           {pickupTime && (
-            <div className="mt-2 text-xs text-[#6b5e52] flex justify-between">
-              <span>受け取り時間</span>
-              <span className="font-bold">{pickupTime}</span>
+            <div className="border-t border-[#e8e0d8] mt-3 pt-3 flex justify-between items-center">
+              <span className="font-bold">受け取り時間</span>
+              <span className="text-xl font-black text-[#8B1A2C]">{pickupTime}</span>
             </div>
           )}
         </div>

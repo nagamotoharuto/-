@@ -22,7 +22,7 @@ export default function StepIndicator({ current }: { current: number }) {
               className={cn(
                 "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors",
                 step.number < current
-                  ? "bg-[#1B3A6B] text-white"
+                  ? "bg-[#8B1A2C] text-white"
                   : step.number === current
                   ? "bg-[#F0AA5A] text-white"
                   : "bg-[#e8e0d8] text-[#6b5e52]"
@@ -43,7 +43,7 @@ export default function StepIndicator({ current }: { current: number }) {
             <div
               className={cn(
                 "h-0.5 w-12 mx-1 mb-5",
-                step.number < current ? "bg-[#1B3A6B]" : "bg-[#e8e0d8]"
+                step.number < current ? "bg-[#8B1A2C]" : "bg-[#e8e0d8]"
               )}
             />
           )}

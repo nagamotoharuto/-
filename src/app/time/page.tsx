@@ -44,7 +44,7 @@ export default function TimePage() {
         {/* Store info - KFC style */}
         <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-4 mb-6">
           <div className="flex items-start gap-3">
-            <MapPin size={18} className="text-[#1B3A6B] mt-0.5 flex-shrink-0" />
+            <MapPin size={18} className="text-[#8B1A2C] mt-0.5 flex-shrink-0" />
             <div>
               <p className="text-sm font-bold text-[#1a1a1a]">受け取り場所</p>
               <p className="text-sm text-[#6b5e52]">1F 正面玄関前</p>
@@ -68,7 +68,7 @@ export default function TimePage() {
           <select
             value={selected}
             onChange={(e) => { setSelected(e.target.value); setError(""); }}
-            className="w-full border border-[#e8e0d8] rounded-xl px-4 py-3 bg-[#fdf8f3] text-sm font-medium text-[#1a1a1a] focus:outline-none focus:ring-2 focus:ring-[#1B3A6B] appearance-none cursor-pointer"
+            className="w-full border border-[#e8e0d8] rounded-xl px-4 py-3 bg-[#fdf8f3] text-sm font-medium text-[#1a1a1a] focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] appearance-none cursor-pointer"
           >
             <option value="">時間を選択してください</option>
             {TIME_SLOTS.map((slot) => (
@@ -81,11 +81,11 @@ export default function TimePage() {
         </div>
 
         {selected && (
-          <div className="bg-[#1B3A6B]/10 border border-[#1B3A6B]/20 rounded-2xl p-4 flex items-center gap-3">
-            <Clock size={20} className="text-[#1B3A6B]" />
+          <div className="bg-[#8B1A2C]/10 border border-[#8B1A2C]/20 rounded-2xl p-4 flex items-center gap-3">
+            <Clock size={20} className="text-[#8B1A2C]" />
             <div>
-              <p className="text-xs text-[#1B3A6B] font-medium">受け取り予定時刻</p>
-              <p className="text-xl font-black text-[#1B3A6B]">{selected}</p>
+              <p className="text-xs text-[#8B1A2C] font-medium">受け取り予定時刻</p>
+              <p className="text-xl font-black text-[#8B1A2C]">{selected}</p>
             </div>
           </div>
         )}
@@ -95,7 +95,7 @@ export default function TimePage() {
         <div className="max-w-md mx-auto">
           <button
             onClick={handleNext}
-            className="w-full bg-[#1B3A6B] text-white rounded-2xl py-4 flex items-center justify-center gap-2 font-bold text-base shadow-lg hover:bg-[#2E5BA8] transition-colors"
+            className="w-full bg-[#8B1A2C] text-white rounded-2xl py-4 flex items-center justify-center gap-2 font-bold text-base shadow-lg hover:bg-[#A52235] transition-colors"
           >
             お支払い方法へ
             <ArrowRight size={18} />

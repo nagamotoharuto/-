@@ -9,7 +9,7 @@ export default function Header() {
   const totalItems = getTotalItems();
 
   return (
-    <header className="sticky top-0 z-50 bg-[#1B3A6B] text-white shadow-md">
+    <header className="sticky top-0 z-50 bg-[#8B1A2C] text-white shadow-md">
       <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <ChefHat size={22} className="text-[#F0AA5A]" />

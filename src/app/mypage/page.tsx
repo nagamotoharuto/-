@@ -48,14 +48,14 @@ export default function MyPage() {
 
       <div className="max-w-md mx-auto w-full px-4 py-4">
         {/* Profile */}
-        <div className="bg-[#1B3A6B] text-white rounded-2xl p-5 mb-4 shadow-md">
+        <div className="bg-[#8B1A2C] text-white rounded-2xl p-5 mb-4 shadow-md">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 bg-[#F0AA5A] rounded-full flex items-center justify-center text-xl font-black">
               {user.nickname.charAt(0)}
             </div>
             <div>
               <p className="font-black text-lg">{user.nickname}</p>
-              <p className="text-xs text-[#A8C8F0]">
+              <p className="text-xs text-[#F5C0C8]">
                 {USER_TYPE_LABELS[user.userType] ?? user.userType}
               </p>
             </div>
@@ -68,10 +68,10 @@ export default function MyPage() {
             ].map(({ icon: Icon, label, value, unit }) => (
               <div key={label} className="bg-white/10 rounded-xl p-3 text-center">
                 <Icon size={16} className="mx-auto mb-1 text-[#F0AA5A]" />
-                <p className="text-xs text-[#A8C8F0]">{label}</p>
+                <p className="text-xs text-[#F5C0C8]">{label}</p>
                 <p className="font-black text-lg">
                   {value}
-                  <span className="text-xs font-normal text-[#A8C8F0]">{unit}</span>
+                  <span className="text-xs font-normal text-[#F5C0C8]">{unit}</span>
                 </p>
               </div>
             ))}
@@ -114,7 +114,7 @@ export default function MyPage() {
                     key={i}
                     className={`aspect-square rounded-full flex items-center justify-center transition-all ${
                       i < stamps
-                        ? "bg-[#1B3A6B] shadow-sm"
+                        ? "bg-[#8B1A2C] shadow-sm"
                         : "bg-[#f5f0eb] border-2 border-dashed border-[#e8e0d8]"
                     }`}
                   >
@@ -127,7 +127,7 @@ export default function MyPage() {
               </div>
               <div className="w-full bg-[#f5f0eb] rounded-full h-2 mb-2">
                 <div
-                  className="bg-[#1B3A6B] h-2 rounded-full transition-all duration-700"
+                  className="bg-[#8B1A2C] h-2 rounded-full transition-all duration-700"
                   style={{ width: `${Math.min(progress * 100, 100)}%` }}
                 />
               </div>
@@ -153,7 +153,7 @@ export default function MyPage() {
               <div
                 key={milestone}
                 className={`flex-shrink-0 rounded-xl p-3 text-center w-16 ${
-                  streak >= milestone ? "bg-[#1B3A6B] text-white" : "bg-[#f5f0eb] text-[#6b5e52]"
+                  streak >= milestone ? "bg-[#8B1A2C] text-white" : "bg-[#f5f0eb] text-[#6b5e52]"
                 }`}
               >
                 <Flame

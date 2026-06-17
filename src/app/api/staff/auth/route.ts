@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const staffPassword = process.env.STAFF_PASSWORD ?? "bakery2024";
+    const staffPassword = process.env.STAFF_PASSWORD ?? "sanjobakery2026";
     const success = password === staffPassword;
 
     return NextResponse.json({ success });

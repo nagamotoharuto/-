@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-function generateOrderNumber(): string {
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2, "0");
-  const mm = String(now.getMinutes()).padStart(2, "0");
-  const xx = String(Math.floor(Math.random() * 100)).padStart(2, "0");
-  return `${hh}${mm}${xx}`;
-}
 
 function getTodayString(): string {
   return new Date().toISOString().slice(0, 10);
@@ -88,13 +81,9 @@ export async function POST(request: NextRequest) {
     }, 0);
     const totalAmount = Math.max(0, baseTotal - freeBreadDiscount);
 
-    // Generate unique order number
-    let orderNumber = generateOrderNumber();
-    for (let i = 0; i < 10; i++) {
-      const existing = await db.order.findUnique({ where: { orderNumber } });
-      if (!existing) break;
-      orderNumber = generateOrderNumber();
-    }
+    // Generate sequential order number
+    const count = await db.order.count();
+    const orderNumber = String(count + 1);
 
     // Decrement stock
     for (const item of items) {
