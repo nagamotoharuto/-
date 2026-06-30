@@ -17,21 +17,16 @@ const USER_TYPES = [
 export default function HomePage() {
   const router = useRouter();
   const { user, setUser } = useBakeryStore();
-  const [studentId, setStudentId] = useState("");
   const [fullName, setFullName] = useState("");
   const [userType, setUserType] = useState(user?.userType ?? "student");
   const [error, setError] = useState("");
 
   function handleStart() {
-    if (!studentId.trim()) {
-      setError("学籍番号を入力してください");
-      return;
-    }
     if (!fullName.trim()) {
       setError("フルネーム（カタカナ）を入力してください");
       return;
     }
-    setUser({ nickname: `${studentId.trim()} ${fullName.trim()}`, userType });
+    setUser({ nickname: fullName.trim(), userType });
     router.push("/menu");
   }
 
@@ -79,23 +74,6 @@ export default function HomePage() {
         {/* User setup */}
         <div className="bg-white rounded-2xl shadow-sm border border-[#e8e0d8] p-6">
           <h2 className="text-base font-bold mb-4 text-[#1a1a1a]">はじめに教えてください</h2>
-
-          <div className="mb-3">
-            <label className="block text-xs font-bold text-[#6b5e52] mb-1">
-              学籍番号
-            </label>
-            <input
-              type="text"
-              value={studentId}
-              onChange={(e) => {
-                setStudentId(e.target.value);
-                setError("");
-              }}
-              placeholder="例：A1234567"
-              maxLength={20}
-              className="w-full border border-[#e8e0d8] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] bg-[#fdf8f3]"
-            />
-          </div>
 
           <div className="mb-4">
             <label className="block text-xs font-bold text-[#6b5e52] mb-1">
