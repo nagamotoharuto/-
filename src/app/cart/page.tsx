@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Plus, Minus, Trash2, ArrowRight, ShoppingBag } from "lucide-react";
@@ -7,11 +8,22 @@ import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
 import StepIndicator from "@/components/features/StepIndicator";
 import { useBakeryStore } from "@/lib/store";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, BREAD_ORDER_LIMIT } from "@/lib/utils";
 
 export default function CartPage() {
   const router = useRouter();
-  const { cart, updateQuantity, removeFromCart, getTotal, getTotalItems } = useBakeryStore();
+  const { user, cart, updateQuantity, removeFromCart, getTotal, getTotalItems } = useBakeryStore();
+  const breadTotal = cart
+    .filter((c) => c.category === "bread")
+    .reduce((sum, c) => sum + c.quantity, 0);
+
+  useEffect(() => {
+    if (!user) {
+      router.push("/");
+    }
+  }, [user, router]);
+
+  if (!user) return null;
   const total = getTotal();
   const totalItems = getTotalItems();
 
@@ -79,7 +91,8 @@ export default function CartPage() {
                   <span className="text-sm font-bold w-4 text-center">{item.quantity}</span>
                   <button
                     onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                    className="w-7 h-7 bg-[#8B1A2C] text-white rounded-full flex items-center justify-center hover:bg-[#A52235] transition-colors"
+                    disabled={item.category === "bread" && breadTotal >= BREAD_ORDER_LIMIT}
+                    className="w-7 h-7 bg-[#8B1A2C] text-white rounded-full flex items-center justify-center hover:bg-[#A52235] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Plus size={12} />
                   </button>
@@ -88,6 +101,12 @@ export default function CartPage() {
             </div>
           ))}
         </div>
+
+        {breadTotal >= BREAD_ORDER_LIMIT && (
+          <p className="text-xs text-[#8B1A2C] font-bold mb-3 text-center">
+            パンは1人{BREAD_ORDER_LIMIT}個までご注文いただけます
+          </p>
+        )}
 
         {/* Summary */}
         <div className="bg-white rounded-2xl border border-[#e8e0d8] p-4 shadow-sm">

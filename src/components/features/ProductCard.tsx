@@ -3,11 +3,12 @@
 import Image from "next/image";
 import { Plus, Minus } from "lucide-react";
 import { useBakeryStore } from "@/lib/store";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, BREAD_ORDER_LIMIT } from "@/lib/utils";
 
 interface Product {
   id: string;
   name: string;
+  category: string;
   price: number;
   imageUrl: string;
   stock: number;
@@ -20,16 +21,22 @@ export default function ProductCard({ product }: { product: Product }) {
   const cartItem = cart.find((c) => c.productId === product.id);
   const qty = cartItem?.quantity ?? 0;
   const soldOut = !product.isAvailable || product.stock === 0;
+  const isBread = product.category === "bread";
+  const breadTotalInCart = cart
+    .filter((c) => c.category === "bread")
+    .reduce((sum, c) => sum + c.quantity, 0);
+  const breadLimitReached = isBread && breadTotalInCart >= BREAD_ORDER_LIMIT;
 
   function handleAdd() {
     if (soldOut) return;
     if (qty >= product.stock) return;
+    if (breadLimitReached) return;
     addToCart({
       productId: product.id,
       name: product.name,
       price: product.price,
       imageUrl: product.imageUrl,
-      category: "",
+      category: product.category,
     });
   }
 
@@ -65,6 +72,11 @@ export default function ProductCard({ product }: { product: Product }) {
           残り {product.stock}
         </div>
       </div>
+      {isBread && (
+        <p className="px-3 pt-2 text-[10px] text-[#6b5e52]">
+          パンは1人{BREAD_ORDER_LIMIT}個まで
+        </p>
+      )}
 
       <div className="p-3 flex flex-col flex-1">
         <h3 className="text-sm font-bold text-[#1a1a1a] mb-0.5 line-clamp-2">{product.name}</h3>
@@ -77,7 +89,7 @@ export default function ProductCard({ product }: { product: Product }) {
           {qty === 0 ? (
             <button
               onClick={handleAdd}
-              disabled={soldOut}
+              disabled={soldOut || breadLimitReached}
               className="w-8 h-8 bg-[#8B1A2C] text-white rounded-full flex items-center justify-center hover:bg-[#A52235] transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-90"
             >
               <Plus size={16} />
@@ -93,7 +105,7 @@ export default function ProductCard({ product }: { product: Product }) {
               <span className="text-sm font-bold w-4 text-center">{qty}</span>
               <button
                 onClick={handleAdd}
-                disabled={qty >= product.stock}
+                disabled={qty >= product.stock || breadLimitReached}
                 className="w-7 h-7 bg-[#8B1A2C] text-white rounded-full flex items-center justify-center hover:bg-[#A52235] transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-90"
               >
                 <Plus size={13} />

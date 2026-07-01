@@ -1,12 +1,12 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Star, Gift, Flame, ShoppingBag, Calendar } from "lucide-react";
+import { Star, Gift, Flame, ShoppingBag, Calendar, ChevronDown, ChevronUp } from "lucide-react";
 import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
 import { useBakeryStore } from "@/lib/store";
-import { STAMPS_PER_CARD, USER_TYPE_LABELS } from "@/lib/utils";
+import { STAMPS_PER_CARD, USER_TYPE_LABELS, formatPrice } from "@/lib/utils";
 
 interface StampCard {
   stamps: number;
@@ -16,11 +16,43 @@ interface StampCard {
   freeItemAvailable: boolean;
 }
 
+interface OrderItem {
+  quantity: number;
+  price: number;
+  product: { name: string; category: string };
+}
+
+interface Order {
+  id: string;
+  orderNumber: string;
+  createdAt: string;
+  status: string;
+  totalAmount: number;
+  items: OrderItem[];
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: "受付中",
+  ready: "準備完了",
+  completed: "受け渡し済",
+  cancelled: "キャンセル",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-800",
+  ready: "bg-green-100 text-green-800",
+  completed: "bg-gray-100 text-gray-600",
+  cancelled: "bg-red-100 text-red-700",
+};
+
 export default function MyPage() {
   const router = useRouter();
   const { user } = useBakeryStore();
   const [card, setCard] = useState<StampCard | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(true);
 
   useEffect(() => {
     if (!user) {
@@ -31,6 +63,11 @@ export default function MyPage() {
       .then((r) => r.json())
       .then(setCard)
       .finally(() => setLoading(false));
+
+    fetch(`/api/orders?nickname=${encodeURIComponent(user.nickname)}`)
+      .then((r) => r.json())
+      .then((data) => setOrders(Array.isArray(data) ? data : []))
+      .finally(() => setOrdersLoading(false));
   }, [user, router]);
 
   if (!user) return null;
@@ -41,6 +78,20 @@ export default function MyPage() {
   const freeItemAvailable = card?.freeItemAvailable ?? false;
   const progress = stamps / STAMPS_PER_CARD;
   const remaining = STAMPS_PER_CARD - stamps;
+
+  // Aggregate bread items eaten
+  const breadMap = new Map<string, number>();
+  for (const order of orders) {
+    if (order.status === "cancelled") continue;
+    for (const item of order.items) {
+      if (item.product.category === "bread") {
+        breadMap.set(item.product.name, (breadMap.get(item.product.name) ?? 0) + item.quantity);
+      }
+    }
+  }
+  const breadStats = Array.from(breadMap.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
 
   return (
     <div className="min-h-screen bg-[#fdf8f3] flex flex-col pb-20">
@@ -139,6 +190,136 @@ export default function MyPage() {
                   : `あと${remaining}個でパン1品無料`}
               </p>
             </>
+          )}
+        </div>
+
+        {/* Bread history */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-[#1a1a1a] flex items-center gap-2">
+              🍞 食べたパン
+            </h2>
+            {breadStats.length > 0 && (
+              <span className="text-xs text-[#6b5e52] bg-[#f5f0eb] px-2 py-1 rounded-full">
+                {breadStats.reduce((s, b) => s + b.count, 0)}個
+              </span>
+            )}
+          </div>
+          {ordersLoading ? (
+            <div className="flex flex-col gap-2">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-8 bg-[#f5f0eb] rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : breadStats.length === 0 ? (
+            <p className="text-xs text-center text-[#6b5e52] py-4">
+              まだパンを注文したことがありません
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {breadStats.map((b, i) => (
+                <div key={b.name} className="flex items-center gap-3">
+                  <span className="w-5 text-xs font-bold text-[#6b5e52] text-right flex-shrink-0">
+                    {i + 1}
+                  </span>
+                  <span className="flex-1 text-sm font-bold text-[#1a1a1a]">{b.name}</span>
+                  <div className="flex items-center gap-1">
+                    {[...Array(Math.min(b.count, 5))].map((_, j) => (
+                      <span key={j} className="text-base">🍞</span>
+                    ))}
+                    {b.count > 5 && (
+                      <span className="text-xs text-[#6b5e52]">+{b.count - 5}</span>
+                    )}
+                  </div>
+                  <span className="text-sm font-black text-[#8B1A2C] flex-shrink-0">{b.count}個</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Order history */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-5 mb-4">
+          <button
+            className="w-full flex items-center justify-between"
+            onClick={() => setHistoryOpen((v) => !v)}
+          >
+            <h2 className="font-bold text-[#1a1a1a] flex items-center gap-2">
+              <Calendar size={16} className="text-[#8B1A2C]" />
+              注文履歴
+            </h2>
+            <div className="flex items-center gap-2">
+              {orders.length > 0 && (
+                <span className="text-xs text-[#6b5e52] bg-[#f5f0eb] px-2 py-1 rounded-full">
+                  {orders.length}件
+                </span>
+              )}
+              {historyOpen ? (
+                <ChevronUp size={16} className="text-[#6b5e52]" />
+              ) : (
+                <ChevronDown size={16} className="text-[#6b5e52]" />
+              )}
+            </div>
+          </button>
+
+          {historyOpen && (
+            <div className="mt-3">
+              {ordersLoading ? (
+                <div className="flex flex-col gap-2">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-16 bg-[#f5f0eb] rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              ) : orders.length === 0 ? (
+                <p className="text-xs text-center text-[#6b5e52] py-4">
+                  注文履歴はありません
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {orders.map((order) => {
+                    const date = new Date(order.createdAt).toLocaleDateString("ja-JP", {
+                      month: "numeric",
+                      day: "numeric",
+                    });
+                    const time = new Date(order.createdAt).toLocaleTimeString("ja-JP", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                    return (
+                      <div
+                        key={order.id}
+                        className="border border-[#e8e0d8] rounded-xl p-3"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-[#8B1A2C]">#{order.orderNumber}</span>
+                            <span
+                              className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                STATUS_COLORS[order.status] ?? "bg-gray-100 text-gray-600"
+                              }`}
+                            >
+                              {STATUS_LABELS[order.status] ?? order.status}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-[#6b5e52]">{date} {time}</p>
+                            <p className="text-sm font-black text-[#1a1a1a]">{formatPrice(order.totalAmount)}</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-[#6b5e52]">
+                          {order.items.map((item, i) => (
+                            <span key={i}>
+                              {item.product.name} ×{item.quantity}
+                              {i < order.items.length - 1 ? "、" : ""}
+                            </span>
+                          ))}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
         </div>
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { BREAD_ORDER_LIMIT } from "@/lib/utils";
 
 
 function getTodayString(): string {
@@ -12,9 +13,12 @@ function getYesterdayString(): string {
   return d.toISOString().slice(0, 10);
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const nickname = searchParams.get("nickname");
     const orders = await db.order.findMany({
+      where: nickname ? { nickname } : undefined,
       include: { items: { include: { product: true } } },
       orderBy: { createdAt: "desc" },
     });
@@ -59,6 +63,17 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
+    }
+
+    const requestedBreadTotal = items.reduce((sum, item) => {
+      const product = productMap.get(item.productId);
+      return product?.category === "bread" ? sum + item.quantity : sum;
+    }, 0);
+    if (requestedBreadTotal > BREAD_ORDER_LIMIT) {
+      return NextResponse.json(
+        { error: `パンは1人${BREAD_ORDER_LIMIT}個までご注文いただけます` },
+        { status: 400 }
+      );
     }
 
     // Check for free bread eligibility (auto-applied server-side)

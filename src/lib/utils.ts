@@ -50,3 +50,5 @@ export const USER_TYPE_LABELS: Record<string, string> = {
 };
 
 export const STAMPS_PER_CARD = 10;
+
+export const BREAD_ORDER_LIMIT = 3;

@@ -292,7 +292,7 @@ export default function ChatWidget() {
               <p className="text-xs font-bold text-[#1a1a1a] leading-snug">
                 {BUBBLE_MESSAGES[bubbleIdx]}
               </p>
-              <p className="text-[10px] text-[#6b5e52] mt-0.5">ノロジーにきいてみよう</p>
+              <p className="text-[10px] text-[#6b5e52] mt-0.5">ノロジーにきいてみよう！</p>
               <div className="absolute -bottom-[7px] right-5 w-0 h-0 border-l-[6px] border-l-transparent border-t-[7px] border-t-white" />
               <div className="absolute -bottom-[8px] right-[19px] w-0 h-0 border-l-[7px] border-l-transparent border-t-[8px] border-t-[#e8e0d8]" style={{ zIndex: -1 }} />
             </div>

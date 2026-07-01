@@ -13,9 +13,12 @@ const navItems = [
   { href: "/mypage", label: "マイページ", icon: User },
 ];
 
+const PROTECTED = ["/menu", "/cart"];
+
 export default function BottomNav() {
   const pathname = usePathname();
   const getTotalItems = useBakeryStore((s) => s.getTotalItems);
+  const user = useBakeryStore((s) => s.user);
   const totalItems = getTotalItems();
 
   return (
@@ -23,7 +26,16 @@ export default function BottomNav() {
       <div className="max-w-3xl mx-auto flex">
         {navItems.map(({ href, label, icon: Icon, showBadge }) => {
           const isActive = pathname === href || (href !== "/" && pathname.startsWith(href));
-          return (
+          const locked = !user && PROTECTED.includes(href);
+          return locked ? (
+            <span
+              key={href}
+              className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[#c8bdb5] cursor-not-allowed"
+            >
+              <Icon size={22} strokeWidth={1.8} />
+              <span className="text-xs">{label}</span>
+            </span>
+          ) : (
             <Link
               key={href}
               href={href}
