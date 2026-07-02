@@ -26,6 +26,19 @@ const BUBBLE_MESSAGES = [
   "何か食べたいものある？",
 ];
 
+const BTN_SIZE = 64;
+const EDGE_MARGIN = 12;
+const POS_STORAGE_KEY = "norozy-button-pos";
+
+function clampPos(x: number, y: number) {
+  const maxX = window.innerWidth - BTN_SIZE - EDGE_MARGIN;
+  const maxY = window.innerHeight - BTN_SIZE - EDGE_MARGIN;
+  return {
+    x: Math.min(Math.max(x, EDGE_MARGIN), Math.max(maxX, EDGE_MARGIN)),
+    y: Math.min(Math.max(y, EDGE_MARGIN), Math.max(maxY, EDGE_MARGIN)),
+  };
+}
+
 async function typewriter(
   fullText: string,
   onUpdate: (text: string) => void,
@@ -52,13 +65,78 @@ export default function ChatWidget() {
   const [loading, setLoading] = useState(false);
   const [bubbleIdx, setBubbleIdx] = useState(0);
   const [bubbleVisible, setBubbleVisible] = useState(true);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const movedRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 100);
   }, [open]);
+
+  useEffect(() => {
+    const defaultPos = clampPos(
+      window.innerWidth - BTN_SIZE - EDGE_MARGIN,
+      window.innerHeight - BTN_SIZE - 96
+    );
+    try {
+      const saved = localStorage.getItem(POS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setPos(clampPos(parsed.x, parsed.y));
+        return;
+      }
+    } catch {}
+    setPos(defaultPos);
+  }, []);
+
+  useEffect(() => {
+    function handleResize() {
+      setPos((p) => (p ? clampPos(p.x, p.y) : p));
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  function handlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
+    if (!pos) return;
+    movedRef.current = false;
+    setDragging(true);
+    dragStartRef.current = { x: e.clientX, y: e.clientY, posX: pos.x, posY: pos.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
+    if (!dragging) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) movedRef.current = true;
+    setPos(clampPos(dragStartRef.current.posX + dx, dragStartRef.current.posY + dy));
+  }
+
+  function handlePointerUp() {
+    if (!dragging) return;
+    setDragging(false);
+    if (!movedRef.current) {
+      setOpen(true);
+      return;
+    }
+    setPos((p) => {
+      if (!p) return p;
+      const snappedX =
+        p.x + BTN_SIZE / 2 < window.innerWidth / 2
+          ? EDGE_MARGIN
+          : window.innerWidth - BTN_SIZE - EDGE_MARGIN;
+      const next = clampPos(snappedX, p.y);
+      try {
+        localStorage.setItem(POS_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -279,16 +357,30 @@ export default function ChatWidget() {
         </div>
       )}
 
-      {/* Floating button + speech bubble */}
-      <div className="fixed bottom-20 right-3 z-30 flex flex-col items-end gap-4">
-        {/* Speech bubble */}
-        {!open && (
+      {/* Floating button + speech bubble (draggable, AssistiveTouch style) */}
+      {!open && pos && (
+        <div
+          className="fixed z-[55]"
+          style={{
+            left: pos.x,
+            top: pos.y,
+            width: BTN_SIZE,
+            height: BTN_SIZE,
+            touchAction: "none",
+            transition: dragging ? "none" : "left 0.25s ease, top 0.25s ease",
+          }}
+        >
+          {/* Speech bubble */}
           <div
-            className={`transition-all duration-300 ${
-              bubbleVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
+            className={`absolute bottom-full mb-2 transition-all duration-300 ${
+              pos.x + BTN_SIZE / 2 < window.innerWidth / 2 ? "left-0" : "right-0"
+            } ${
+              bubbleVisible && !dragging
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 translate-y-1 pointer-events-none"
             }`}
           >
-            <div className="relative bg-white rounded-2xl rounded-br-sm px-3 py-2 shadow-lg border border-[#e8e0d8] max-w-[180px]">
+            <div className="relative bg-white rounded-2xl rounded-br-sm px-3 py-2 shadow-lg border border-[#e8e0d8] max-w-[180px] w-max">
               <p className="text-xs font-bold text-[#1a1a1a] leading-snug">
                 {BUBBLE_MESSAGES[bubbleIdx]}
               </p>
@@ -297,29 +389,36 @@ export default function ChatWidget() {
               <div className="absolute -bottom-[8px] right-[19px] w-0 h-0 border-l-[7px] border-l-transparent border-t-[8px] border-t-[#e8e0d8]" style={{ zIndex: -1 }} />
             </div>
           </div>
-        )}
 
-        {/* ノロジー button */}
-        <button
-          onClick={() => setOpen(true)}
-          className="w-16 h-16 flex items-center justify-center hover:scale-110 transition-all active:scale-95"
-          aria-label="ノロジーに相談する"
-        >
-          <div
-            className={`transition-all duration-300 ${
-              bubbleVisible ? "opacity-100 scale-100" : "opacity-80 scale-95"
+          {/* ノロジー button */}
+          <button
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+            className={`w-16 h-16 flex items-center justify-center transition-transform active:scale-95 ${
+              dragging ? "scale-110" : "hover:scale-110"
             }`}
+            style={{ touchAction: "none" }}
+            aria-label="ノロジーに相談する"
           >
-            <Image
-              src="/noroji.png"
-              alt="ノロジー"
-              width={64}
-              height={64}
-              className="object-contain drop-shadow-lg mix-blend-multiply"
-            />
-          </div>
-        </button>
-      </div>
+            <div
+              className={`transition-all duration-300 ${
+                bubbleVisible ? "opacity-100 scale-100" : "opacity-80 scale-95"
+              }`}
+            >
+              <Image
+                src="/noroji.png"
+                alt="ノロジー"
+                width={64}
+                height={64}
+                draggable={false}
+                className="object-contain drop-shadow-lg mix-blend-multiply"
+              />
+            </div>
+          </button>
+        </div>
+      )}
     </>
   );
 }
