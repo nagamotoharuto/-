@@ -191,7 +191,7 @@ export default function InventoryPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && !sessionStorage.getItem("staff_auth")) {
-      router.push("/staff");
+      router.push("/admin");
       return;
     }
     loadProducts();
@@ -303,7 +303,7 @@ export default function InventoryPage() {
     <div className="min-h-screen bg-[#fdf8f3]">
       <header className="bg-[#8B1A2C] text-white px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/staff/dashboard" className="text-[#A8C8F0] hover:text-white">
+          <Link href="/admin/dashboard" className="text-[#A8C8F0] hover:text-white">
             <ChevronLeft size={20} />
           </Link>
           <div className="flex items-center gap-2">

@@ -60,7 +60,7 @@ export default function StaffDashboardPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && !sessionStorage.getItem("staff_auth")) {
-      router.push("/staff");
+      router.push("/admin");
       return;
     }
     loadOrders();
@@ -85,7 +85,7 @@ export default function StaffDashboardPage() {
 
   function logout() {
     sessionStorage.removeItem("staff_auth");
-    router.push("/staff");
+    router.push("/admin");
   }
 
   const filtered =
@@ -147,7 +147,7 @@ export default function StaffDashboardPage() {
           <span className="font-bold text-sm">スタッフ管理画面</span>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/staff/inventory" className="text-xs text-[#F5C0C8] hover:text-white flex items-center gap-1">
+          <Link href="/admin/inventory" className="text-xs text-[#F5C0C8] hover:text-white flex items-center gap-1">
             <Package size={14} />
             在庫
           </Link>

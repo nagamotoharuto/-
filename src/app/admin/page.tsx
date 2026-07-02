@@ -25,7 +25,7 @@ export default function StaffLoginPage() {
       const data = await res.json();
       if (data.success) {
         sessionStorage.setItem("staff_auth", "1");
-        router.push("/staff/dashboard");
+        router.push("/admin/dashboard");
       } else {
         setError("パスワードが正しくありません");
       }
