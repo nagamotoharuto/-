@@ -75,8 +75,8 @@ export default function HomePage() {
           <h2 className="text-base font-bold mb-4 text-[#1a1a1a]">はじめに教えてください</h2>
 
           <div className="mb-4">
-            <label className="block text-xs font-bold text-[#6b5e52] mb-1">
-              フルネーム（カタカナ）
+            <label className="block text-base font-black text-[#D8232A] mb-1.5">
+              フルネーム（カタカナ）<span className="text-xs font-bold align-top">必須</span>
             </label>
             <input
               type="text"

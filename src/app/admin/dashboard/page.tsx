@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Package, ClipboardList, LogOut, ChefHat, RefreshCw, Home, BarChart2 } from "lucide-react";
+import { Package, ClipboardList, LogOut, ChefHat, RefreshCw, Home, BarChart2, AlertTriangle, Croissant, CupSoda, Shirt } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 
 interface Order {
@@ -91,6 +91,8 @@ export default function StaffDashboardPage() {
   const filtered =
     filter === "all"
       ? orders
+      : filter === "overdue"
+      ? orders.filter(isOverdue)
       : orders.filter((o) => o.status === filter);
 
   const today = new Date().toLocaleDateString("ja-JP", {
@@ -111,6 +113,19 @@ export default function StaffDashboardPage() {
       d.getDate() === now.getDate()
     );
   }
+
+  // "受取未到達": prepared and waiting, but past the promised pickup time
+  function isOverdue(order: Order) {
+    if (order.status !== "ready") return false;
+    const [h, m] = order.pickupTime.split(":").map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return false;
+    const pickupAt = new Date(order.createdAt);
+    pickupAt.setHours(h, m, 0, 0);
+    return Date.now() > pickupAt.getTime();
+  }
+
+  const overdueOrders = orders.filter(isOverdue);
+  const todayOverdue = overdueOrders.length;
 
   // Sales summary calculations
   const rangedOrders = salesRange === "today" ? orders.filter((o) => isToday(o.createdAt)) : orders;
@@ -137,6 +152,13 @@ export default function StaffDashboardPage() {
   }
   const itemSales = Array.from(itemSalesMap.values()).sort((a, b) => b.count - a.count);
   const maxCount = itemSales[0]?.count ?? 1;
+
+  const categoryTotals = { bread: 0, drink: 0, goods: 0 };
+  for (const item of itemSales) {
+    if (item.category in categoryTotals) {
+      categoryTotals[item.category as keyof typeof categoryTotals] += item.count;
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#fdf8f3]">
@@ -205,7 +227,7 @@ export default function StaffDashboardPage() {
         {tab === "orders" ? (
           <>
             {/* Quick stats */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="grid grid-cols-3 gap-3 mb-4">
               <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-3 text-center">
                 <p className="text-2xl font-black text-yellow-700">{todayPending}</p>
                 <p className="text-xs text-yellow-600">受付中</p>
@@ -213,6 +235,10 @@ export default function StaffDashboardPage() {
               <div className="bg-green-50 border border-green-200 rounded-2xl p-3 text-center">
                 <p className="text-2xl font-black text-green-700">{todayReady}</p>
                 <p className="text-xs text-green-600">準備完了</p>
+              </div>
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-3 text-center">
+                <p className="text-2xl font-black text-red-700">{todayOverdue}</p>
+                <p className="text-xs text-red-600">受取未到達</p>
               </div>
             </div>
 
@@ -222,6 +248,7 @@ export default function StaffDashboardPage() {
                 { value: "all", label: "すべて" },
                 { value: "pending", label: "受付中" },
                 { value: "ready", label: "準備完了" },
+                { value: "overdue", label: "受取未到達" },
                 { value: "completed", label: "受け渡し済" },
               ].map((f) => (
                 <button
@@ -252,10 +279,14 @@ export default function StaffDashboardPage() {
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {filtered.map((order) => (
+                {filtered.map((order) => {
+                  const overdue = isOverdue(order);
+                  return (
                   <div
                     key={order.id}
-                    className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm overflow-hidden"
+                    className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${
+                      overdue ? "border-red-300 ring-1 ring-red-200" : "border-[#e8e0d8]"
+                    }`}
                   >
                     <div className="px-4 pt-4 pb-3 border-b border-[#e8e0d8]">
                       <div className="flex items-center justify-between mb-1">
@@ -266,6 +297,12 @@ export default function StaffDashboardPage() {
                           >
                             {STATUS_LABELS[order.status]}
                           </span>
+                          {overdue && (
+                            <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                              <AlertTriangle size={11} />
+                              受取未到達
+                            </span>
+                          )}
                         </div>
                         <span className="text-lg font-black text-[#1a1a1a]">{order.pickupTime}</span>
                       </div>
@@ -313,7 +350,8 @@ export default function StaffDashboardPage() {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </>
@@ -356,6 +394,25 @@ export default function StaffDashboardPage() {
                   {totalOrderCount}
                   <span className="text-sm font-normal text-[#6b5e52]">件</span>
                 </p>
+              </div>
+            </div>
+
+            {/* Category totals */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-center">
+                <Croissant size={18} className="mx-auto mb-1 text-amber-700" />
+                <p className="text-xl font-black text-amber-700">{categoryTotals.bread}</p>
+                <p className="text-xs text-amber-600">パン合計</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 text-center">
+                <CupSoda size={18} className="mx-auto mb-1 text-blue-700" />
+                <p className="text-xl font-black text-blue-700">{categoryTotals.drink}</p>
+                <p className="text-xs text-blue-600">ドリンク合計</p>
+              </div>
+              <div className="bg-purple-50 border border-purple-200 rounded-2xl p-3 text-center">
+                <Shirt size={18} className="mx-auto mb-1 text-purple-700" />
+                <p className="text-xl font-black text-purple-700">{categoryTotals.goods}</p>
+                <p className="text-xs text-purple-600">大学グッズ合計</p>
               </div>
             </div>
 

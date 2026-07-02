@@ -194,46 +194,65 @@ export default function MyPage() {
         </div>
 
         {/* Bread history */}
-        <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-5 mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-[#1a1a1a] flex items-center gap-2">
-              🍞 食べたパン
+        <div className="bg-gradient-to-br from-[#fff8ee] to-white rounded-2xl border border-[#e8e0d8] shadow-sm p-5 mb-4 overflow-hidden">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="font-black text-[#1a1a1a] flex items-center gap-2">
+              🍞 食べたパン図鑑
             </h2>
             {breadStats.length > 0 && (
-              <span className="text-xs text-[#6b5e52] bg-[#f5f0eb] px-2 py-1 rounded-full">
-                {breadStats.reduce((s, b) => s + b.count, 0)}個
+              <span className="text-xs font-bold text-white bg-[#F0AA5A] px-3 py-1 rounded-full shadow-sm">
+                合計 {breadStats.reduce((s, b) => s + b.count, 0)}個
               </span>
             )}
           </div>
+
           {ordersLoading ? (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 mt-4">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-8 bg-[#f5f0eb] rounded-xl animate-pulse" />
+                <div key={i} className="h-16 bg-[#f5f0eb] rounded-xl animate-pulse" />
               ))}
             </div>
           ) : breadStats.length === 0 ? (
-            <p className="text-xs text-center text-[#6b5e52] py-4">
-              まだパンを注文したことがありません
-            </p>
+            <div className="text-center py-8">
+              <p className="text-4xl mb-2 opacity-40">🥐</p>
+              <p className="text-xs text-[#6b5e52]">
+                まだパンを注文したことがありません
+              </p>
+            </div>
           ) : (
-            <div className="flex flex-col gap-2">
-              {breadStats.map((b, i) => (
-                <div key={b.name} className="flex items-center gap-3">
-                  <span className="w-5 text-xs font-bold text-[#6b5e52] text-right flex-shrink-0">
-                    {i + 1}
-                  </span>
-                  <span className="flex-1 text-sm font-bold text-[#1a1a1a]">{b.name}</span>
-                  <div className="flex items-center gap-1">
-                    {[...Array(Math.min(b.count, 5))].map((_, j) => (
-                      <span key={j} className="text-base">🍞</span>
-                    ))}
-                    {b.count > 5 && (
-                      <span className="text-xs text-[#6b5e52]">+{b.count - 5}</span>
-                    )}
+            <div className="flex flex-col gap-4 mt-4">
+              {breadStats.map((b, bi) => {
+                const shown = Math.min(b.count, 24);
+                return (
+                  <div
+                    key={b.name}
+                    className="bg-white rounded-2xl border border-[#f0e6d8] p-3 shadow-sm"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-black text-[#1a1a1a]">{b.name}</span>
+                      <span className="text-xs font-black text-white bg-[#8B1A2C] px-2.5 py-1 rounded-full">
+                        {b.count}個できあがり！
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[...Array(shown)].map((_, j) => (
+                        <span
+                          key={j}
+                          className="text-2xl leading-none animate-pop-in"
+                          style={{ animationDelay: `${(bi * 6 + j) * 40}ms` }}
+                        >
+                          🍞
+                        </span>
+                      ))}
+                      {b.count > shown && (
+                        <span className="text-xs font-bold text-[#6b5e52] self-center ml-1">
+                          +{b.count - shown}個
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <span className="text-sm font-black text-[#8B1A2C] flex-shrink-0">{b.count}個</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
