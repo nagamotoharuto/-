@@ -17,8 +17,10 @@ import {
   ImageIcon,
   Home,
   Plus,
+  Minus,
+  Clock,
 } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, isWithinSalesHours } from "@/lib/utils";
 
 interface Product {
   id: string;
@@ -188,6 +190,8 @@ export default function InventoryPage() {
   const [newProduct, setNewProduct] = useState({ name: "", category: "bread", price: "", imageUrl: "", stock: 0, description: "" });
   const [addError, setAddError] = useState("");
   const [addSaving, setAddSaving] = useState(false);
+  const [stockUpdating, setStockUpdating] = useState<string | null>(null);
+  const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
     if (typeof window !== "undefined" && !sessionStorage.getItem("staff_auth")) {
@@ -196,6 +200,13 @@ export default function InventoryPage() {
     }
     loadProducts();
   }, [router]);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const businessOpen = isWithinSalesHours(now);
 
   async function loadProducts() {
     setLoading(true);
@@ -217,6 +228,25 @@ export default function InventoryPage() {
 
   function toggleExpand(id: string) {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  async function adjustStock(product: Product, delta: number) {
+    const nextStock = Math.max(0, product.stock + delta);
+    if (nextStock === product.stock || stockUpdating) return;
+
+    setStockUpdating(product.id);
+    setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, stock: nextStock } : p)));
+
+    const res = await fetch("/api/inventory", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId: product.id, stock: nextStock }),
+    });
+
+    if (!res.ok) {
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, stock: product.stock } : p)));
+    }
+    setStockUpdating(null);
   }
 
   function cancelEdit(product: Product) {
@@ -328,8 +358,22 @@ export default function InventoryPage() {
 
       <div className="max-w-2xl mx-auto px-4 py-4">
         <p className="text-xs text-[#6b5e52] mb-4">
-          各商品の「編集」ボタンで商品名・金額・写真・在庫を変更できます。
+          各商品の「編集」ボタンで商品名・金額・写真を変更、在庫は＋／－ボタンでリアルタイムに変更できます。
         </p>
+
+        {/* Business hours banner */}
+        <div
+          className={`flex items-center gap-2 rounded-2xl px-4 py-3 mb-4 text-xs font-bold ${
+            businessOpen
+              ? "bg-green-50 border border-green-200 text-green-700"
+              : "bg-gray-100 border border-gray-300 text-gray-600"
+          }`}
+        >
+          <Clock size={14} />
+          {businessOpen
+            ? "営業時間中（11:00〜15:00）：販売中の商品はお客様に表示されています"
+            : "営業時間外です：全商品が自動的に「停止中」として表示されます（翌日11:00に自動再開）"}
+        </div>
 
         {/* Add new product */}
         <div className="mb-6">
@@ -469,6 +513,7 @@ export default function InventoryPage() {
                     const dirty = isDirty(product, edit);
                     const isOpen = expanded[product.id] ?? false;
                     const err = errors[product.id];
+                    const effectiveAvailable = edit.isAvailable && businessOpen;
 
                     return (
                       <div
@@ -493,23 +538,26 @@ export default function InventoryPage() {
                             <p className="text-xs text-[#6b5e52]">
                               {formatPrice(Number(edit.price) || product.price)}
                             </p>
-                            <div className="flex items-center gap-3 mt-1.5">
-                              <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                              <div className="flex items-center gap-1.5">
                                 <span className="text-xs text-[#6b5e52]">在庫</span>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={999}
-                                  value={edit.stock}
-                                  onChange={(e) =>
-                                    updateEdit(
-                                      product.id,
-                                      "stock",
-                                      Math.max(0, parseInt(e.target.value) || 0)
-                                    )
-                                  }
-                                  className="w-14 border border-[#e8e0d8] rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-[#8B1A2C]"
-                                />
+                                <button
+                                  onClick={() => adjustStock(product, -1)}
+                                  disabled={product.stock <= 0 || stockUpdating === product.id}
+                                  className="w-6 h-6 flex items-center justify-center rounded-full border border-[#e8e0d8] text-[#8B1A2C] hover:bg-[#f5f0eb] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                >
+                                  <Minus size={12} />
+                                </button>
+                                <span className="w-7 text-center text-sm font-black text-[#1a1a1a]">
+                                  {product.stock}
+                                </span>
+                                <button
+                                  onClick={() => adjustStock(product, 1)}
+                                  disabled={stockUpdating === product.id}
+                                  className="w-6 h-6 flex items-center justify-center rounded-full border border-[#e8e0d8] text-[#8B1A2C] hover:bg-[#f5f0eb] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                >
+                                  <Plus size={12} />
+                                </button>
                               </div>
                               <button
                                 onClick={() =>
@@ -517,19 +565,22 @@ export default function InventoryPage() {
                                 }
                                 className="flex items-center gap-0.5"
                               >
-                                {edit.isAvailable ? (
+                                {effectiveAvailable ? (
                                   <ToggleRight size={20} className="text-[#8B1A2C]" />
                                 ) : (
                                   <ToggleLeft size={20} className="text-[#e8e0d8]" />
                                 )}
                                 <span
                                   className={`text-xs font-bold ${
-                                    edit.isAvailable ? "text-[#8B1A2C]" : "text-[#6b5e52]"
+                                    effectiveAvailable ? "text-[#8B1A2C]" : "text-[#6b5e52]"
                                   }`}
                                 >
-                                  {edit.isAvailable ? "販売中" : "停止中"}
+                                  {effectiveAvailable ? "販売中" : "停止中"}
                                 </span>
                               </button>
+                              {!businessOpen && edit.isAvailable && (
+                                <span className="text-[10px] text-[#6b5e52]">(営業時間外)</span>
+                              )}
                             </div>
                           </div>
                           <div className="flex flex-col gap-2 flex-shrink-0">

@@ -16,7 +16,7 @@ interface Order {
   status: string;
   totalAmount: number;
   createdAt: string;
-  items: Array<{ quantity: number; product: { name: string; category: string } }>;
+  items: Array<{ quantity: number; price: number; product: { name: string; category: string } }>;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -157,6 +157,16 @@ export default function StaffDashboardPage() {
   for (const item of itemSales) {
     if (item.category in categoryTotals) {
       categoryTotals[item.category as keyof typeof categoryTotals] += item.count;
+    }
+  }
+
+  const categoryRevenue = { bread: 0, drink: 0, goods: 0 };
+  for (const order of soldOrders) {
+    for (const item of order.items) {
+      const category = item.product.category;
+      if (category in categoryRevenue) {
+        categoryRevenue[category as keyof typeof categoryRevenue] += item.price * item.quantity;
+      }
     }
   }
 
@@ -401,17 +411,29 @@ export default function StaffDashboardPage() {
             <div className="grid grid-cols-3 gap-3 mb-4">
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-center">
                 <Croissant size={18} className="mx-auto mb-1 text-amber-700" />
-                <p className="text-xl font-black text-amber-700">{categoryTotals.bread}</p>
+                <p className="text-xl font-black text-amber-700">
+                  {categoryTotals.bread}
+                  <span className="text-xs font-normal">個</span>
+                </p>
+                <p className="text-xs font-bold text-amber-700">{formatPrice(categoryRevenue.bread)}</p>
                 <p className="text-xs text-amber-600">パン合計</p>
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 text-center">
                 <CupSoda size={18} className="mx-auto mb-1 text-blue-700" />
-                <p className="text-xl font-black text-blue-700">{categoryTotals.drink}</p>
+                <p className="text-xl font-black text-blue-700">
+                  {categoryTotals.drink}
+                  <span className="text-xs font-normal">個</span>
+                </p>
+                <p className="text-xs font-bold text-blue-700">{formatPrice(categoryRevenue.drink)}</p>
                 <p className="text-xs text-blue-600">ドリンク合計</p>
               </div>
               <div className="bg-purple-50 border border-purple-200 rounded-2xl p-3 text-center">
                 <Shirt size={18} className="mx-auto mb-1 text-purple-700" />
-                <p className="text-xl font-black text-purple-700">{categoryTotals.goods}</p>
+                <p className="text-xl font-black text-purple-700">
+                  {categoryTotals.goods}
+                  <span className="text-xs font-normal">個</span>
+                </p>
+                <p className="text-xs font-bold text-purple-700">{formatPrice(categoryRevenue.goods)}</p>
                 <p className="text-xs text-purple-600">大学グッズ合計</p>
               </div>
             </div>

@@ -8,7 +8,7 @@ import BottomNav from "@/components/features/BottomNav";
 import ProductCard from "@/components/features/ProductCard";
 import StepIndicator from "@/components/features/StepIndicator";
 import { useBakeryStore } from "@/lib/store";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, isWithinSalesHours } from "@/lib/utils";
 
 const CATEGORIES = [
   { value: "all", label: "すべて" },
@@ -51,6 +51,7 @@ export default function MenuPage() {
 
   const totalItems = getTotalItems();
   const total = getTotal();
+  const storeOpen = isWithinSalesHours();
 
   return (
     <div className="min-h-screen bg-[#fdf8f3] flex flex-col pb-32">
@@ -58,6 +59,12 @@ export default function MenuPage() {
 
       <div className="max-w-md mx-auto w-full px-4">
         <StepIndicator current={1} />
+
+        {!storeOpen && (
+          <div className="bg-gray-100 border border-gray-300 text-gray-600 text-xs font-bold rounded-2xl px-4 py-3 mb-4 text-center">
+            現在は営業時間外です（11:00〜15:00）。ご注文は営業時間内にお願いします。
+          </div>
+        )}
 
         {/* Category tabs */}
         <div className="flex gap-2 mb-4 overflow-x-auto pb-1">

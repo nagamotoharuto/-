@@ -82,7 +82,7 @@ export default function ConfirmPage() {
           {order.nickname}さんのご来店を<br />お待ちしています
         </h1>
         <div className="inline-block bg-white/10 rounded-2xl px-6 py-3 mt-2">
-          <p className="text-xs text-[#F5C0C8] mb-1">ニックネーム</p>
+          <p className="text-xs text-[#F5C0C8] mb-1">名前</p>
           <p className="text-3xl font-black tracking-wide">{order.nickname}</p>
         </div>
       </div>
@@ -126,7 +126,7 @@ export default function ConfirmPage() {
           <ol className="space-y-2">
             {[
               "指定の時間に1F 正面玄関前にお越しください",
-              "スタッフにニックネームをお伝えください",
+              "スタッフに名前をお伝えください",
               "商品をお受け取りの際にお支払いください",
             ].map((step, i) => (
               <li key={i} className="flex items-start gap-2 text-xs text-[#6b5e52]">

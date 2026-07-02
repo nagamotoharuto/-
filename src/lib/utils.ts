@@ -34,12 +34,9 @@ export function getTodayString(): string {
   return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")}`;
 }
 
-export function isWithinSalesHours(): boolean {
-  const now = new Date();
-  const h = now.getHours();
-  const m = now.getMinutes();
-  const totalMin = h * 60 + m;
-  return totalMin >= 11 * 60 && totalMin <= 15 * 60;
+export function isWithinSalesHours(date: Date = new Date()): boolean {
+  const totalMin = date.getHours() * 60 + date.getMinutes();
+  return totalMin >= 11 * 60 && totalMin < 15 * 60;
 }
 
 export const USER_TYPE_LABELS: Record<string, string> = {

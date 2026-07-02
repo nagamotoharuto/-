@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { BREAD_ORDER_LIMIT } from "@/lib/utils";
+import { BREAD_ORDER_LIMIT, isWithinSalesHours } from "@/lib/utils";
 
 
 function getTodayString(): string {
@@ -42,6 +42,13 @@ export async function POST(request: NextRequest) {
 
     if (!nickname || !userType || !pickupTime || !paymentMethod || !items?.length) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    if (!isWithinSalesHours()) {
+      return NextResponse.json(
+        { error: "現在は営業時間外です（11:00〜15:00）。営業時間内にご注文ください" },
+        { status: 400 }
+      );
     }
 
     const productIds = items.map((i) => i.productId);
