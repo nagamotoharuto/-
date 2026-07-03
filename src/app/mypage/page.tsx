@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Star, Gift, Flame, ShoppingBag, Calendar, ChevronDown, ChevronUp } from "lucide-react";
 import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
@@ -31,6 +32,12 @@ interface Order {
   items: OrderItem[];
 }
 
+interface BreadProduct {
+  id: string;
+  name: string;
+  imageUrl: string;
+}
+
 const STATUS_LABELS: Record<string, string> = {
   pending: "受付中",
   ready: "準備完了",
@@ -50,8 +57,10 @@ export default function MyPage() {
   const { user } = useBakeryStore();
   const [card, setCard] = useState<StampCard | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [breadProducts, setBreadProducts] = useState<BreadProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(true);
 
   useEffect(() => {
@@ -68,6 +77,11 @@ export default function MyPage() {
       .then((r) => r.json())
       .then((data) => setOrders(Array.isArray(data) ? data : []))
       .finally(() => setOrdersLoading(false));
+
+    fetch(`/api/products?category=bread`)
+      .then((r) => r.json())
+      .then((data) => setBreadProducts(Array.isArray(data) ? data : []))
+      .finally(() => setProductsLoading(false));
   }, [user, router]);
 
   if (!user) return null;
@@ -92,6 +106,15 @@ export default function MyPage() {
   const breadStats = Array.from(breadMap.entries())
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count);
+
+  // Build dex entries from every bread product that exists (grows automatically as new breads are added)
+  const dexEntries = breadProducts.map((p) => ({
+    id: p.id,
+    name: p.name,
+    imageUrl: p.imageUrl,
+    count: breadMap.get(p.name) ?? 0,
+  }));
+  const collectedCount = dexEntries.filter((e) => e.count > 0).length;
 
   return (
     <div className="min-h-screen bg-[#fdf8f3] flex flex-col pb-20">
@@ -193,63 +216,87 @@ export default function MyPage() {
           )}
         </div>
 
-        {/* Bread history */}
+        {/* Bread dex */}
         <div className="bg-gradient-to-br from-[#fff8ee] to-white rounded-2xl border border-[#e8e0d8] shadow-sm p-5 mb-4 overflow-hidden">
           <div className="flex items-center justify-between mb-1">
             <h2 className="font-black text-[#1a1a1a] flex items-center gap-2">
               🍞 食べたパン図鑑
             </h2>
-            {breadStats.length > 0 && (
+            {!productsLoading && dexEntries.length > 0 && (
               <span className="text-xs font-bold text-white bg-[#F0AA5A] px-3 py-1 rounded-full shadow-sm">
-                合計 {breadStats.reduce((s, b) => s + b.count, 0)}個
+                {collectedCount}/{dexEntries.length}種類発見
               </span>
             )}
           </div>
 
-          {ordersLoading ? (
-            <div className="flex flex-col gap-2 mt-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-16 bg-[#f5f0eb] rounded-xl animate-pulse" />
+          {!productsLoading && dexEntries.length > 0 && (
+            <div className="w-full bg-[#f5f0eb] rounded-full h-1.5 mt-2 mb-1">
+              <div
+                className="bg-[#F0AA5A] h-1.5 rounded-full transition-all duration-700"
+                style={{ width: `${(collectedCount / dexEntries.length) * 100}%` }}
+              />
+            </div>
+          )}
+
+          {productsLoading || ordersLoading ? (
+            <div className="grid grid-cols-3 gap-3 mt-4">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="aspect-square rounded-2xl bg-[#f5f0eb] animate-pulse" />
               ))}
             </div>
-          ) : breadStats.length === 0 ? (
+          ) : dexEntries.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-4xl mb-2 opacity-40">🥐</p>
               <p className="text-xs text-[#6b5e52]">
-                まだパンを注文したことがありません
+                まだパンの商品が登録されていません
               </p>
             </div>
           ) : (
-            <div className="flex flex-col gap-4 mt-4">
-              {breadStats.map((b, bi) => {
-                const shown = Math.min(b.count, 24);
+            <div className="grid grid-cols-3 gap-3 mt-4">
+              {dexEntries.map((entry, i) => {
+                const collected = entry.count > 0;
                 return (
                   <div
-                    key={b.name}
-                    className="bg-white rounded-2xl border border-[#f0e6d8] p-3 shadow-sm"
+                    key={entry.id}
+                    className={`relative aspect-square rounded-2xl overflow-hidden flex items-center justify-center ${
+                      collected
+                        ? "border-2 border-[#8B1A2C] bg-white shadow-sm animate-pop-in"
+                        : "border-2 border-dashed border-[#e8e0d8] bg-[#f5f0eb]"
+                    }`}
+                    style={collected ? { animationDelay: `${i * 60}ms` } : undefined}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-black text-[#1a1a1a]">{b.name}</span>
-                      <span className="text-xs font-black text-white bg-[#8B1A2C] px-2.5 py-1 rounded-full">
-                        {b.count}個できあがり！
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {[...Array(shown)].map((_, j) => (
-                        <span
-                          key={j}
-                          className="text-2xl leading-none animate-pop-in"
-                          style={{ animationDelay: `${(bi * 6 + j) * 40}ms` }}
-                        >
-                          🍞
+                    {entry.imageUrl ? (
+                      <Image
+                        src={entry.imageUrl}
+                        alt={collected ? entry.name : "未発見のパン"}
+                        fill
+                        className={`object-cover ${collected ? "" : "brightness-0 opacity-10"}`}
+                        sizes="120px"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      !collected && (
+                        <span className="text-3xl opacity-10 grayscale">🍞</span>
+                      )
+                    )}
+
+                    {!collected && (
+                      <span className="absolute text-2xl font-black text-[#c9bdae]">?</span>
+                    )}
+
+                    {collected && (
+                      <>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-black/0" />
+                        <span className="absolute bottom-1 left-1 right-1 text-[10px] font-bold text-white text-center truncate">
+                          {entry.name}
                         </span>
-                      ))}
-                      {b.count > shown && (
-                        <span className="text-xs font-bold text-[#6b5e52] self-center ml-1">
-                          +{b.count - shown}個
+                        <span className="absolute top-1 right-1 text-[10px] font-black text-white bg-[#8B1A2C] rounded-full px-1.5 py-0.5 shadow-sm">
+                          ×{entry.count}
                         </span>
-                      )}
-                    </div>
+                      </>
+                    )}
                   </div>
                 );
               })}
