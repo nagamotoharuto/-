@@ -1,10 +1,11 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChefHat, ShoppingBag, Clock, CheckCircle, ArrowRight, MapPin } from "lucide-react";
 import { useBakeryStore } from "@/lib/store";
 import BottomNav from "@/components/features/BottomNav";
+import { isWithinSalesHours } from "@/lib/utils";
 
 const USER_TYPES = [
   { value: "student", label: "学生" },
@@ -19,6 +20,12 @@ export default function HomePage() {
   const [fullName, setFullName] = useState("");
   const [userType, setUserType] = useState(user?.userType ?? "student");
   const [error, setError] = useState("");
+  const [storeOpen, setStoreOpen] = useState(() => isWithinSalesHours());
+
+  useEffect(() => {
+    const id = setInterval(() => setStoreOpen(isWithinSalesHours()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   function handleStart() {
     if (!fullName.trim()) {
@@ -26,6 +33,10 @@ export default function HomePage() {
       return;
     }
     setUser({ nickname: fullName.trim(), userType });
+    if (!isWithinSalesHours()) {
+      setError("現在は営業時間外です。営業日（月〜金）11:00〜15:00にご利用ください");
+      return;
+    }
     router.push("/menu");
   }
 
@@ -41,9 +52,17 @@ export default function HomePage() {
           </div>
           <h1 className="text-2xl font-black tracking-wide mb-1">University Bakery</h1>
           <p className="text-sm text-[#A8C8F0] mb-4">事前予約サービス</p>
-          <div className="flex items-center justify-center gap-2 text-xs bg-white/10 rounded-lg px-4 py-2">
+          <div className="flex items-center justify-center gap-2 text-xs bg-white/10 rounded-lg px-4 py-2 mb-2">
             <MapPin size={12} />
-            <span>1F 正面玄関前　営業時間 11:00〜15:00</span>
+            <span>1F 正面玄関前　営業時間 平日11:00〜15:00</span>
+          </div>
+          <div
+            className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${
+              storeOpen ? "bg-green-500/20 text-green-100" : "bg-white/20 text-white"
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${storeOpen ? "bg-green-300" : "bg-gray-300"}`} />
+            {storeOpen ? "只今営業中" : "只今営業時間外（土日祝・平日15:00〜11:00は休業）"}
           </div>
         </div>
       </div>

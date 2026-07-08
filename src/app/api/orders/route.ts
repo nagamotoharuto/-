@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     if (!isWithinSalesHours()) {
       return NextResponse.json(
-        { error: "現在は営業時間外です（11:00〜15:00）。営業時間内にご注文ください" },
+        { error: "現在は営業時間外です（平日11:00〜15:00）。営業時間内にご注文ください" },
         { status: 400 }
       );
     }

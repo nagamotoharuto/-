@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, ArrowRight, MapPin } from "lucide-react";
 import Header from "@/components/features/Header";
@@ -13,9 +13,17 @@ const TIME_SLOTS = getTimeSlots();
 
 export default function TimePage() {
   const router = useRouter();
-  const { pickupTime, setPickupTime } = useBakeryStore();
+  const { user, pickupTime, setPickupTime } = useBakeryStore();
   const [selected, setSelected] = useState(pickupTime || "");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!user) {
+      router.push("/");
+    }
+  }, [user, router]);
+
+  if (!user) return null;
 
   const today = new Date();
   const dateLabel = `${today.getMonth() + 1}月${today.getDate()}日（${["日", "月", "火", "水", "木", "金", "土"][today.getDay()]}）本日`;
@@ -48,7 +56,7 @@ export default function TimePage() {
             <div>
               <p className="text-sm font-bold text-[#1a1a1a]">受け取り場所</p>
               <p className="text-sm text-[#6b5e52]">1F 正面玄関前</p>
-              <p className="text-xs text-[#6b5e52] mt-1">営業時間：11:00〜15:00</p>
+              <p className="text-xs text-[#6b5e52] mt-1">営業時間：平日11:00〜15:00（土日祝休業）</p>
             </div>
           </div>
         </div>

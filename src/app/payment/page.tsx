@@ -26,12 +26,17 @@ export default function PaymentPage() {
   const [freeItemAvailable, setFreeItemAvailable] = useState(false);
 
   useEffect(() => {
-    if (!user?.nickname) return;
+    if (!user) {
+      router.push("/");
+      return;
+    }
     fetch(`/api/stamp?nickname=${encodeURIComponent(user.nickname)}`)
       .then((r) => r.json())
       .then((data) => setFreeItemAvailable(data.freeItemAvailable ?? false))
       .catch(() => {});
-  }, [user]);
+  }, [user, router]);
+
+  if (!user) return null;
 
   // Detect cheapest bread-like item in cart for display purposes
   const breadItems = cart

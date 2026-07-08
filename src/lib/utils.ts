@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import holidayJp from "@holiday-jp/holiday_jp";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -34,7 +35,16 @@ export function getTodayString(): string {
   return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")}`;
 }
 
+// 営業日：月〜金（土日祝は休業）
+export function isBusinessDay(date: Date = new Date()): boolean {
+  const day = date.getDay();
+  if (day === 0 || day === 6) return false;
+  return !holidayJp.isHoliday(date);
+}
+
+// 営業時間：営業日の 11:00〜15:00
 export function isWithinSalesHours(date: Date = new Date()): boolean {
+  if (!isBusinessDay(date)) return false;
   const totalMin = date.getHours() * 60 + date.getMinutes();
   return totalMin >= 11 * 60 && totalMin < 15 * 60;
 }

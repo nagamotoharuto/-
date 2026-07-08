@@ -1,10 +1,11 @@
 ﻿"use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, UtensilsCrossed, ShoppingCart, User } from "lucide-react";
 import { useBakeryStore } from "@/lib/store";
-import { cn } from "@/lib/utils";
+import { cn, isWithinSalesHours } from "@/lib/utils";
 
 const navItems = [
   { href: "/", label: "ホーム", icon: Home },
@@ -14,19 +15,27 @@ const navItems = [
 ];
 
 const PROTECTED = ["/menu", "/cart", "/mypage"];
+const HOURS_GATED = ["/menu", "/cart"];
 
 export default function BottomNav() {
   const pathname = usePathname();
   const getTotalItems = useBakeryStore((s) => s.getTotalItems);
   const user = useBakeryStore((s) => s.user);
   const totalItems = getTotalItems();
+  const [storeOpen, setStoreOpen] = useState(() => isWithinSalesHours());
+
+  useEffect(() => {
+    const id = setInterval(() => setStoreOpen(isWithinSalesHours()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#e8e0d8] safe-area-inset-bottom">
       <div className="max-w-3xl mx-auto flex">
         {navItems.map(({ href, label, icon: Icon, showBadge }) => {
           const isActive = pathname === href || (href !== "/" && pathname.startsWith(href));
-          const locked = !user && PROTECTED.includes(href);
+          const locked =
+            (!user && PROTECTED.includes(href)) || (!storeOpen && HOURS_GATED.includes(href));
           return locked ? (
             <span
               key={href}

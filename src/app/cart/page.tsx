@@ -8,7 +8,7 @@ import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
 import StepIndicator from "@/components/features/StepIndicator";
 import { useBakeryStore } from "@/lib/store";
-import { formatPrice, BREAD_ORDER_LIMIT } from "@/lib/utils";
+import { formatPrice, BREAD_ORDER_LIMIT, isWithinSalesHours } from "@/lib/utils";
 
 export default function CartPage() {
   const router = useRouter();
@@ -18,12 +18,18 @@ export default function CartPage() {
     .reduce((sum, c) => sum + c.quantity, 0);
 
   useEffect(() => {
-    if (!user) {
-      router.push("/");
+    function checkAccess() {
+      if (!user || !isWithinSalesHours()) {
+        router.push("/");
+      }
     }
+    checkAccess();
+    // Kick the customer out if the store closes while they're on the cart
+    const id = setInterval(checkAccess, 30000);
+    return () => clearInterval(id);
   }, [user, router]);
 
-  if (!user) return null;
+  if (!user || !isWithinSalesHours()) return null;
   const total = getTotal();
   const totalItems = getTotalItems();
 
