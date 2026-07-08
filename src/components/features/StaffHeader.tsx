@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChefHat, ClipboardList, Package, Truck, Home, LogOut } from "lucide-react";
+import { ChefHat, ClipboardList, Package, Truck, QrCode, Home, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/admin/dashboard", label: "注文・売上", icon: ClipboardList },
   { href: "/admin/inventory", label: "商品・在庫", icon: Package },
   { href: "/admin/restock", label: "発注", icon: Truck },
+  { href: "/admin/qrcode", label: "QRコード", icon: QrCode },
 ];
 
 export default function StaffHeader() {
