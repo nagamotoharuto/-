@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChefHat, ShoppingBag, Clock, CheckCircle, ArrowRight, MapPin } from "lucide-react";
+import Link from "next/link";
+import { ChefHat, ShoppingBag, Clock, CheckCircle, ArrowRight, MapPin, Camera } from "lucide-react";
 import { useBakeryStore } from "@/lib/store";
 import BottomNav from "@/components/features/BottomNav";
 import { isWithinSalesHours } from "@/lib/utils";
@@ -88,6 +89,21 @@ export default function HomePage() {
             </div>
           ))}
         </div>
+
+        {/* Live camera CTA */}
+        <Link
+          href="/camera"
+          className="flex items-center gap-3 bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-4 mb-6 hover:border-[#8B1A2C] transition-colors"
+        >
+          <div className="w-11 h-11 bg-[#8B1A2C] rounded-full flex items-center justify-center flex-shrink-0">
+            <Camera size={20} className="text-white" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-[#1a1a1a]">ライブカメラでパン棚を見る</p>
+            <p className="text-xs text-[#6b5e52]">今の在庫状況を映像でチェックできます</p>
+          </div>
+          <ArrowRight size={18} className="text-[#8B1A2C] flex-shrink-0" />
+        </Link>
 
         {/* User setup */}
         <div className="bg-white rounded-2xl shadow-sm border border-[#e8e0d8] p-6">
