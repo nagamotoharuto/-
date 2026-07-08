@@ -86,6 +86,16 @@ export const useBakeryStore = create<BakeryStore>()(
       getTotalItems: () =>
         get().cart.reduce((sum, item) => sum + item.quantity, 0),
     }),
-    { name: "bakery-store" }
+    {
+      name: "bakery-store",
+      // This is a shared walk-up kiosk: don't persist `user` across page loads,
+      // otherwise the next customer on the same device inherits the previous
+      // customer's name and skips the required home-screen entry.
+      partialize: (state) => ({
+        cart: state.cart,
+        pickupTime: state.pickupTime,
+        paymentMethod: state.paymentMethod,
+      }),
+    }
   )
 );

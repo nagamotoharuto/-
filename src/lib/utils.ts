@@ -35,17 +35,54 @@ export function getTodayString(): string {
   return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")}`;
 }
 
-// 営業日：月〜金（土日祝は休業）
-export function isBusinessDay(date: Date = new Date()): boolean {
-  const day = date.getDay();
-  if (day === 0 || day === 6) return false;
-  return !holidayJp.isHoliday(date);
+const JST_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Tokyo",
+  hour12: false,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  weekday: "short",
+});
+
+const JST_WEEKDAYS: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+// Reads wall-clock JST values regardless of the host system's timezone
+// (the server may run in UTC, e.g. on Railway, while the bakery operates on JST)
+function getJstParts(date: Date) {
+  const values: Record<string, string> = {};
+  for (const part of JST_FORMATTER.formatToParts(date)) {
+    values[part.type] = part.value;
+  }
+  return {
+    isoDate: `${values.year}-${values.month}-${values.day}`,
+    hour: parseInt(values.hour, 10) % 24,
+    minute: parseInt(values.minute, 10),
+    day: JST_WEEKDAYS[values.weekday] ?? date.getDay(),
+  };
 }
 
-// 営業時間：営業日の 11:00〜15:00
+// 営業日：月〜金（土日祝は休業）
+export function isBusinessDay(date: Date = new Date()): boolean {
+  const { day, isoDate } = getJstParts(date);
+  if (day === 0 || day === 6) return false;
+  return !holidayJp.isHoliday(isoDate);
+}
+
+// 営業時間：営業日の 11:00〜15:00（日本時間基準）
 export function isWithinSalesHours(date: Date = new Date()): boolean {
   if (!isBusinessDay(date)) return false;
-  const totalMin = date.getHours() * 60 + date.getMinutes();
+  const { hour, minute } = getJstParts(date);
+  const totalMin = hour * 60 + minute;
   return totalMin >= 11 * 60 && totalMin < 15 * 60;
 }
 
