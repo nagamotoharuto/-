@@ -2,10 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
 import {
-  ChevronLeft,
   Save,
   Package,
   RefreshCw,
@@ -15,12 +13,12 @@ import {
   X,
   Upload,
   ImageIcon,
-  Home,
   Plus,
   Minus,
   Clock,
 } from "lucide-react";
 import { formatPrice, isWithinSalesHours } from "@/lib/utils";
+import StaffHeader from "@/components/features/StaffHeader";
 
 interface Product {
   id: string;
@@ -331,35 +329,27 @@ export default function InventoryPage() {
 
   return (
     <div className="min-h-screen bg-[#fdf8f3]">
-      <header className="bg-[#8B1A2C] text-white px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/admin/dashboard" className="text-[#A8C8F0] hover:text-white">
-            <ChevronLeft size={20} />
-          </Link>
-          <div className="flex items-center gap-2">
-            <Package size={18} className="text-[#F0AA5A]" />
-            <span className="font-bold text-sm">商品・在庫管理</span>
+      <StaffHeader />
+
+      <div className="max-w-2xl mx-auto px-4 py-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="font-black text-[#1a1a1a] text-lg flex items-center gap-2">
+              <Package size={18} className="text-[#8B1A2C]" />
+              商品・在庫管理
+            </h1>
+            <p className="text-xs text-[#6b5e52] mt-1">
+              「編集」で商品名・金額・写真を変更、在庫は＋／－ボタンでリアルタイムに変更できます
+            </p>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-1 text-xs text-[#A8C8F0] hover:text-white">
-            <Home size={14} />
-            ホーム
-          </Link>
           <button
             onClick={loadProducts}
-            className="flex items-center gap-1 text-xs text-[#A8C8F0] hover:text-white"
+            className="flex-shrink-0 flex items-center gap-1 text-xs text-[#6b5e52] bg-white rounded-lg px-3 py-2 border border-[#e8e0d8]"
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={12} />
             更新
           </button>
         </div>
-      </header>
-
-      <div className="max-w-2xl mx-auto px-4 py-4">
-        <p className="text-xs text-[#6b5e52] mb-4">
-          各商品の「編集」ボタンで商品名・金額・写真を変更、在庫は＋／－ボタンでリアルタイムに変更できます。
-        </p>
 
         {/* Business hours banner */}
         <div

@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Package, ClipboardList, LogOut, ChefHat, RefreshCw, Home, BarChart2, AlertTriangle, Croissant, CupSoda, Shirt } from "lucide-react";
+import { ClipboardList, RefreshCw, BarChart2, AlertTriangle, Croissant, CupSoda, Shirt } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
+import StaffHeader from "@/components/features/StaffHeader";
 
 interface Order {
   id: string;
@@ -81,11 +81,6 @@ export default function StaffDashboardPage() {
       body: JSON.stringify({ status }),
     });
     loadOrders();
-  }
-
-  function logout() {
-    sessionStorage.removeItem("staff_auth");
-    router.push("/admin");
   }
 
   const filtered =
@@ -173,26 +168,7 @@ export default function StaffDashboardPage() {
   return (
     <div className="min-h-screen bg-[#fdf8f3]">
       {/* Staff header */}
-      <header className="bg-[#8B1A2C] text-white px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ChefHat size={20} className="text-[#F0AA5A]" />
-          <span className="font-bold text-sm">スタッフ管理画面</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href="/admin/inventory" className="text-xs text-[#F5C0C8] hover:text-white flex items-center gap-1">
-            <Package size={14} />
-            在庫
-          </Link>
-          <Link href="/" className="text-xs text-[#F5C0C8] hover:text-white flex items-center gap-1">
-            <Home size={14} />
-            ホーム
-          </Link>
-          <button onClick={logout} className="text-xs text-[#F5C0C8] hover:text-white flex items-center gap-1">
-            <LogOut size={14} />
-            ログアウト
-          </button>
-        </div>
-      </header>
+      <StaffHeader />
 
       {/* Tab switcher */}
       <div className="bg-white border-b border-[#e8e0d8] flex">
