@@ -1,20 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, Camera, RefreshCw, WifiOff } from "lucide-react";
 import BottomNav from "@/components/features/BottomNav";
 
-const CAMERA_STREAM_URL = process.env.NEXT_PUBLIC_CAMERA_STREAM_URL;
+// URL of the camera's single-snapshot endpoint (ESP32 CameraWebServer's "/capture" on port 80,
+// exposed via a tunnel), e.g. https://xxxx.trycloudflare.com/capture
+// NOT the "/stream" (multipart/x-mixed-replace) endpoint: iOS/macOS Safari cannot render
+// multipart MJPEG in an <img>, so instead we poll a fresh single JPEG on an interval.
+const CAMERA_SNAPSHOT_URL = process.env.NEXT_PUBLIC_CAMERA_STREAM_URL;
+const REFRESH_INTERVAL_MS = 1500;
+const FAIL_THRESHOLD = 4;
 
 export default function CameraPage() {
-  const [reloadKey, setReloadKey] = useState(0);
-  const [streamError, setStreamError] = useState(false);
+  const [src, setSrc] = useState<string | null>(null);
+  const [failCount, setFailCount] = useState(0);
+
+  useEffect(() => {
+    if (!CAMERA_SNAPSHOT_URL) return;
+
+    function refresh() {
+      setSrc(`${CAMERA_SNAPSHOT_URL}?t=${Date.now()}`);
+    }
+
+    refresh();
+    const id = setInterval(refresh, REFRESH_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
 
   function retry() {
-    setStreamError(false);
-    setReloadKey((k) => k + 1);
+    setFailCount(0);
+    if (CAMERA_SNAPSHOT_URL) setSrc(`${CAMERA_SNAPSHOT_URL}?t=${Date.now()}`);
   }
+
+  const showError = failCount >= FAIL_THRESHOLD;
 
   return (
     <div className="min-h-screen bg-[#fdf8f3] flex flex-col pb-20">
@@ -28,7 +48,7 @@ export default function CameraPage() {
             <span className="font-bold text-sm">ライブカメラ（パン棚）</span>
           </div>
         </div>
-        {CAMERA_STREAM_URL && (
+        {CAMERA_SNAPSHOT_URL && (
           <button
             onClick={retry}
             className="flex items-center gap-1 text-xs text-[#A8C8F0] hover:text-white"
@@ -40,7 +60,7 @@ export default function CameraPage() {
       </header>
 
       <div className="max-w-md mx-auto w-full px-4 py-4 flex-1 flex flex-col">
-        {!CAMERA_STREAM_URL ? (
+        {!CAMERA_SNAPSHOT_URL ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 bg-white rounded-2xl border border-[#e8e0d8] p-8">
             <Camera size={40} className="text-[#e8e0d8]" />
             <p className="text-sm font-bold text-[#1a1a1a]">ライブカメラは準備中です</p>
@@ -48,7 +68,7 @@ export default function CameraPage() {
               カメラの設置が完了次第、こちらでパン棚の様子をご覧いただけます
             </p>
           </div>
-        ) : streamError ? (
+        ) : showError ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 bg-white rounded-2xl border border-[#e8e0d8] p-8">
             <WifiOff size={40} className="text-[#e8e0d8]" />
             <p className="text-sm font-bold text-[#1a1a1a]">映像を取得できませんでした</p>
@@ -63,16 +83,19 @@ export default function CameraPage() {
             </button>
           </div>
         ) : (
-          <div className="rounded-2xl overflow-hidden border border-[#e8e0d8] shadow-sm bg-black">
-            {/* MJPEG stream: a plain <img> is required, next/image cannot render a live multipart stream */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              key={reloadKey}
-              src={CAMERA_STREAM_URL}
-              alt="パン棚のライブ映像"
-              className="w-full h-auto block"
-              onError={() => setStreamError(true)}
-            />
+          <div className="rounded-2xl overflow-hidden border border-[#e8e0d8] shadow-sm bg-black min-h-[240px]">
+            {/* Polled single-JPEG snapshot: works on every browser, including iOS Safari
+                (which cannot render a multipart/x-mixed-replace MJPEG stream in an <img>) */}
+            {src && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={src}
+                alt="パン棚のライブ映像"
+                className="w-full h-auto block"
+                onError={() => setFailCount((c) => c + 1)}
+                onLoad={() => setFailCount(0)}
+              />
+            )}
           </div>
         )}
 
