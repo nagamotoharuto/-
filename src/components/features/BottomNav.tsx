@@ -13,7 +13,7 @@ const navItems = [
   { href: "/mypage", label: "マイページ", icon: User },
 ];
 
-const PROTECTED = ["/menu", "/cart"];
+const PROTECTED = ["/menu", "/cart", "/mypage"];
 
 export default function BottomNav() {
   const pathname = usePathname();

@@ -389,33 +389,6 @@ export default function MyPage() {
           )}
         </div>
 
-        {/* Streak card */}
-        <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-5 mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Flame size={20} className="text-orange-500" />
-            <h2 className="font-bold text-[#1a1a1a]">連続注文チャレンジ</h2>
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {[1, 3, 7, 14, 30].map((milestone) => (
-              <div
-                key={milestone}
-                className={`flex-shrink-0 rounded-xl p-3 text-center w-16 ${
-                  streak >= milestone ? "bg-[#8B1A2C] text-white" : "bg-[#f5f0eb] text-[#6b5e52]"
-                }`}
-              >
-                <Flame
-                  size={16}
-                  className={`mx-auto mb-1 ${streak >= milestone ? "text-[#F0AA5A] fill-[#F0AA5A]" : "text-[#e8e0d8]"}`}
-                />
-                <p className="text-xs font-bold">{milestone}日</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-[#6b5e52] mt-3">
-            {streak === 0 ? "毎日注文して連続記録を作ろう！" : `現在${streak}日連続！継続中`}
-          </p>
-        </div>
-
         {/* Rules */}
         <div className="bg-[#f5f0eb] rounded-2xl p-4 text-xs text-[#6b5e52]">
           <div className="flex items-center gap-2 mb-2">

@@ -40,10 +40,18 @@ export default function MenuPage() {
       router.push("/");
       return;
     }
-    fetch("/api/products")
-      .then((r) => r.json())
-      .then((data) => setProducts(Array.isArray(data) ? data : []))
-      .finally(() => setLoading(false));
+
+    function loadProducts() {
+      return fetch("/api/products")
+        .then((r) => r.json())
+        .then((data) => setProducts(Array.isArray(data) ? data : []));
+    }
+
+    loadProducts().finally(() => setLoading(false));
+
+    // Poll so admin stock/availability changes show up without a manual refresh
+    const id = setInterval(loadProducts, 5000);
+    return () => clearInterval(id);
   }, [user, router]);
 
   const filtered =
