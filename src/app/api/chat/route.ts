@@ -45,11 +45,11 @@ export async function POST(req: NextRequest) {
     try {
       const orders = await db.order.findMany({
         where: { nickname },
-        include: { items: { include: { product: { select: { name: true } } } } },
+        select: { items: { select: { name: true } } },
         orderBy: { createdAt: "desc" },
         take: 10,
       });
-      pastProductNames = orders.flatMap((o) => o.items.map((i) => i.product.name));
+      pastProductNames = orders.flatMap((o) => o.items.map((i) => i.name));
     } catch (err) {
       console.error("[chat] DB order query failed:", err);
     }

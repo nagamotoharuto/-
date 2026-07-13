@@ -11,7 +11,7 @@ interface OrderItem {
   id: string;
   quantity: number;
   price: number;
-  product: { name: string };
+  name: string;
 }
 
 interface Order {
@@ -146,7 +146,7 @@ export default function ConfirmPage() {
             {order.items.map((item) => (
               <div key={item.id} className="flex justify-between items-center">
                 <span className="text-sm text-[#1a1a1a]">
-                  {item.product.name} × {item.quantity}
+                  {item.name} × {item.quantity}
                 </span>
                 <span className="text-sm font-medium text-[#1a1a1a]">
                   {formatPrice(item.price * item.quantity)}

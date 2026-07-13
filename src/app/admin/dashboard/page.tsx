@@ -17,7 +17,7 @@ interface Order {
   status: string;
   totalAmount: number;
   createdAt: string;
-  items: Array<{ quantity: number; price: number; product: { name: string; category: string } }>;
+  items: Array<{ quantity: number; price: number; name: string; category: string }>;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -133,14 +133,14 @@ export default function StaffDashboardPage() {
   const itemSalesMap = new Map<string, { name: string; category: string; count: number }>();
   for (const order of soldOrders) {
     for (const item of order.items) {
-      const key = item.product.name;
+      const key = item.name;
       const existing = itemSalesMap.get(key);
       if (existing) {
         existing.count += item.quantity;
       } else {
         itemSalesMap.set(key, {
-          name: item.product.name,
-          category: item.product.category,
+          name: item.name,
+          category: item.category,
           count: item.quantity,
         });
       }
@@ -159,7 +159,7 @@ export default function StaffDashboardPage() {
   const categoryRevenue = { bread: 0, drink: 0, goods: 0 };
   for (const order of soldOrders) {
     for (const item of order.items) {
-      const category = item.product.category;
+      const category = item.category;
       if (category in categoryRevenue) {
         categoryRevenue[category as keyof typeof categoryRevenue] += item.price * item.quantity;
       }
@@ -312,7 +312,7 @@ export default function StaffDashboardPage() {
                     <div className="px-4 py-2 text-xs text-[#6b5e52]">
                       {order.items.map((item, i) => (
                         <span key={i}>
-                          {item.product.name} ×{item.quantity}
+                          {item.name} ×{item.quantity}
                           {i < order.items.length - 1 ? "、" : ""}
                         </span>
                       ))}

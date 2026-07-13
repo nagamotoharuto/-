@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "OrderItem"
+  ADD COLUMN "name" TEXT NOT NULL DEFAULT '',
+  ADD COLUMN "imageUrl" TEXT NOT NULL DEFAULT '',
+  ADD COLUMN "category" TEXT NOT NULL DEFAULT '';

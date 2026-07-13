@@ -20,7 +20,9 @@ interface StampCard {
 interface OrderItem {
   quantity: number;
   price: number;
-  product: { name: string; category: string };
+  name: string;
+  imageUrl: string;
+  category: string;
 }
 
 interface Order {
@@ -93,13 +95,16 @@ export default function MyPage() {
   const progress = stamps / STAMPS_PER_CARD;
   const remaining = STAMPS_PER_CARD - stamps;
 
-  // Aggregate bread items eaten
+  // Aggregate bread items eaten. Uses the name/category snapshotted on the
+  // OrderItem at purchase time (not a live join to Product), so past entries
+  // stay correct even after staff repurposes a product slot for a different
+  // bread the next day.
   const breadMap = new Map<string, number>();
   for (const order of orders) {
     if (order.status === "cancelled") continue;
     for (const item of order.items) {
-      if (item.product.category === "bread") {
-        breadMap.set(item.product.name, (breadMap.get(item.product.name) ?? 0) + item.quantity);
+      if (item.category === "bread") {
+        breadMap.set(item.name, (breadMap.get(item.name) ?? 0) + item.quantity);
       }
     }
   }
@@ -107,9 +112,25 @@ export default function MyPage() {
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count);
 
-  // Build dex entries from every bread product that exists (grows automatically as new breads are added)
-  const dexEntries = breadProducts.map((p) => ({
-    id: p.id,
+  // Dex universe = currently-listed bread products (so not-yet-tried breads show
+  // as "?" slots) UNION every bread name this customer has ever purchased (so a
+  // bread they ate keeps its place in the dex even after the product row is later
+  // renamed/reused for a different item). This is what makes the dex keep growing
+  // day over day even though the bakery sells different breads each day.
+  const dexMap = new Map<string, { name: string; imageUrl: string }>();
+  for (const p of breadProducts) {
+    dexMap.set(p.name, { name: p.name, imageUrl: p.imageUrl });
+  }
+  for (const order of orders) {
+    if (order.status === "cancelled") continue;
+    for (const item of order.items) {
+      if (item.category === "bread" && !dexMap.has(item.name)) {
+        dexMap.set(item.name, { name: item.name, imageUrl: item.imageUrl });
+      }
+    }
+  }
+  const dexEntries = Array.from(dexMap.values()).map((p) => ({
+    id: p.name,
     name: p.name,
     imageUrl: p.imageUrl,
     count: breadMap.get(p.name) ?? 0,
@@ -375,7 +396,7 @@ export default function MyPage() {
                         <p className="text-xs text-[#6b5e52]">
                           {order.items.map((item, i) => (
                             <span key={i}>
-                              {item.product.name} ×{item.quantity}
+                              {item.name} ×{item.quantity}
                               {i < order.items.length - 1 ? "、" : ""}
                             </span>
                           ))}

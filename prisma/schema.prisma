@@ -41,6 +41,12 @@ model OrderItem {
   productId String
   quantity  Int
   price     Int
+  // Snapshotted at order time so past orders keep showing what was actually
+  // purchased even if the Product row is later renamed/reused for a
+  // different item (e.g. staff repurposing a bread slot for the next day's bake).
+  name      String
+  imageUrl  String
+  category  String
   order     Order   @relation(fields: [orderId], references: [id])
   product   Product @relation(fields: [productId], references: [id])
 }

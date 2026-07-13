@@ -131,11 +131,17 @@ export async function POST(request: NextRequest) {
         totalAmount,
         orderNumber,
         items: {
-          create: items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            price: productMap.get(item.productId)!.price,
-          })),
+          create: items.map((item) => {
+            const product = productMap.get(item.productId)!;
+            return {
+              productId: item.productId,
+              quantity: item.quantity,
+              price: product.price,
+              name: product.name,
+              imageUrl: product.imageUrl,
+              category: product.category,
+            };
+          }),
         },
       },
       include: { items: { include: { product: true } } },

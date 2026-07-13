@@ -33,7 +33,10 @@ CREATE TABLE IF NOT EXISTS "OrderItem" (
   "orderId" TEXT NOT NULL,
   "productId" TEXT NOT NULL,
   "quantity" INTEGER NOT NULL,
-  "price" INTEGER NOT NULL
+  "price" INTEGER NOT NULL,
+  "name" TEXT NOT NULL DEFAULT '',
+  "imageUrl" TEXT NOT NULL DEFAULT '',
+  "category" TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS "StampCard" (
   "id" TEXT NOT NULL PRIMARY KEY,
