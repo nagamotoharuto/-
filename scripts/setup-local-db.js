@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS "Product" (
 CREATE TABLE IF NOT EXISTS "Order" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "nickname" TEXT NOT NULL,
+  "email" TEXT NOT NULL DEFAULT '',
   "userType" TEXT NOT NULL,
   "pickupTime" TEXT NOT NULL,
   "paymentMethod" TEXT NOT NULL,

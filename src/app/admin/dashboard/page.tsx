@@ -10,6 +10,7 @@ interface Order {
   id: string;
   orderNumber: string;
   nickname: string;
+  email: string;
   userType: string;
   pickupTime: string;
   paymentMethod: string;
@@ -299,6 +300,14 @@ export default function StaffDashboardPage() {
                         <span>|</span>
                         <span className="font-bold text-[#8B1A2C]">{formatPrice(order.totalAmount)}</span>
                       </div>
+                      {order.email && (
+                        <a
+                          href={`mailto:${order.email}`}
+                          className="text-xs text-[#8B1A2C] underline break-all"
+                        >
+                          {order.email}
+                        </a>
+                      )}
                     </div>
                     <div className="px-4 py-2 text-xs text-[#6b5e52]">
                       {order.items.map((item, i) => (

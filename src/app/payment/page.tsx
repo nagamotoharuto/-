@@ -61,6 +61,7 @@ export default function PaymentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nickname: user.nickname,
+          email: user.email,
           userType: user.userType,
           pickupTime,
           paymentMethod: selected,

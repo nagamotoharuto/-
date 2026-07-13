@@ -14,6 +14,7 @@ export interface CartItem {
 
 export interface UserProfile {
   nickname: string;
+  email: string;
   userType: string;
 }
 
@@ -88,11 +89,13 @@ export const useBakeryStore = create<BakeryStore>()(
     }),
     {
       name: "bakery-store",
-      // This is a shared walk-up kiosk: don't persist `user` across page loads,
-      // otherwise the next customer on the same device inherits the previous
-      // customer's name and skips the required home-screen entry.
+      // Persisted per device so returning customers don't have to retype their
+      // name/email every visit. The home screen still shows editable fields
+      // (pre-filled from this), so a different person on the same device can
+      // overwrite it with their own info before starting an order.
       partialize: (state) => ({
         cart: state.cart,
+        user: state.user,
         pickupTime: state.pickupTime,
         paymentMethod: state.paymentMethod,
       }),

@@ -18,7 +18,8 @@ const USER_TYPES = [
 export default function HomePage() {
   const router = useRouter();
   const { user, setUser } = useBakeryStore();
-  const [fullName, setFullName] = useState("");
+  const [fullName, setFullName] = useState(user?.nickname ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
   const [userType, setUserType] = useState(user?.userType ?? "student");
   const [error, setError] = useState("");
   const [storeOpen, setStoreOpen] = useState(() => isWithinSalesHours());
@@ -33,7 +34,11 @@ export default function HomePage() {
       setError("フルネーム（カタカナ）を入力してください");
       return;
     }
-    setUser({ nickname: fullName.trim(), userType });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("正しいメールアドレスを入力してください");
+      return;
+    }
+    setUser({ nickname: fullName.trim(), email: email.trim(), userType });
     if (!isWithinSalesHours()) {
       setError("現在は営業時間外です。営業日（月〜金）11:00〜15:00にご利用ください");
       return;
@@ -125,6 +130,25 @@ export default function HomePage() {
               className="w-full border border-[#e8e0d8] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] bg-[#fdf8f3]"
             />
             {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-base font-black text-[#D8232A] mb-1.5">
+              メールアドレス<span className="text-xs font-bold align-top">必須</span>
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError("");
+              }}
+              placeholder="例：example@school.ac.jp"
+              className="w-full border border-[#e8e0d8] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] bg-[#fdf8f3]"
+            />
+            <p className="text-xs text-[#6b5e52] mt-1">
+              想定外の事態が発生した際のご連絡に使用します
+            </p>
           </div>
 
           <div className="mb-6">

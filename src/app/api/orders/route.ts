@@ -32,8 +32,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { nickname, userType, pickupTime, paymentMethod, items } = body as {
+    const { nickname, email, userType, pickupTime, paymentMethod, items } = body as {
       nickname: string;
+      email: string;
       userType: string;
       pickupTime: string;
       paymentMethod: string;
@@ -42,6 +43,10 @@ export async function POST(request: NextRequest) {
 
     if (!nickname || !userType || !pickupTime || !paymentMethod || !items?.length) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: "有効なメールアドレスを入力してください" }, { status: 400 });
     }
 
     if (!isWithinSalesHours()) {
@@ -119,6 +124,7 @@ export async function POST(request: NextRequest) {
     const order = await db.order.create({
       data: {
         nickname,
+        email,
         userType,
         pickupTime,
         paymentMethod,
