@@ -68,7 +68,7 @@ export default function HomePage() {
             }`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${storeOpen ? "bg-green-300" : "bg-gray-300"}`} />
-            {storeOpen ? "只今営業中" : "只今営業時間外（土日祝・平日15:00〜11:00は休業）"}
+            {storeOpen ? "只今営業中" : "只今営業時間外"}
           </div>
         </div>
       </div>
