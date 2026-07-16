@@ -80,6 +80,8 @@ export function isBusinessDay(date: Date = new Date()): boolean {
 
 // 営業時間：営業日の 11:00〜15:00（日本時間基準）
 export function isWithinSalesHours(date: Date = new Date()): boolean {
+  // Local test-drive override — set in .env only, never commit/deploy this as true.
+  if (process.env.NEXT_PUBLIC_FORCE_SALES_OPEN === "true") return true;
   if (!isBusinessDay(date)) return false;
   const { hour, minute } = getJstParts(date);
   const totalMin = hour * 60 + minute;
