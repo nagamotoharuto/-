@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, Camera, RefreshCw, WifiOff } from "lucide-react";
+import { ChevronLeft, Camera, RefreshCw, WifiOff, Croissant } from "lucide-react";
 import BottomNav from "@/components/features/BottomNav";
 
 // URL of the camera's single-snapshot endpoint (ESP32 CameraWebServer's "/capture" on port 80,
@@ -12,10 +12,24 @@ import BottomNav from "@/components/features/BottomNav";
 const CAMERA_SNAPSHOT_URL = process.env.NEXT_PUBLIC_CAMERA_STREAM_URL;
 const REFRESH_INTERVAL_MS = 1500;
 const FAIL_THRESHOLD = 4;
+const SHELF_COUNT_INTERVAL_MS = 30_000;
+
+interface ShelfCountItem {
+  id: string;
+  name: string;
+  count: number;
+}
+
+interface ShelfCountResult {
+  items: ShelfCountItem[];
+  updatedAt: string;
+  error: string | null;
+}
 
 export default function CameraPage() {
   const [src, setSrc] = useState<string | null>(null);
   const [failCount, setFailCount] = useState(0);
+  const [shelfCount, setShelfCount] = useState<ShelfCountResult | null>(null);
 
   useEffect(() => {
     if (!CAMERA_SNAPSHOT_URL) return;
@@ -26,6 +40,21 @@ export default function CameraPage() {
 
     refresh();
     const id = setInterval(refresh, REFRESH_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (!CAMERA_SNAPSHOT_URL) return;
+
+    function refreshCount() {
+      fetch("/api/shelf-count")
+        .then((r) => r.json())
+        .then(setShelfCount)
+        .catch(() => {});
+    }
+
+    refreshCount();
+    const id = setInterval(refreshCount, SHELF_COUNT_INTERVAL_MS);
     return () => clearInterval(id);
   }, []);
 
@@ -96,6 +125,30 @@ export default function CameraPage() {
                 onLoad={() => setFailCount(0)}
               />
             )}
+          </div>
+        )}
+
+        {shelfCount && shelfCount.items.length > 0 && (
+          <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-4 mt-4">
+            <p className="text-xs font-bold text-[#1a1a1a] mb-2 flex items-center gap-1.5">
+              <Croissant size={14} className="text-[#8B1A2C]" />
+              パンの在庫目安（AIカウント）
+            </p>
+            <div className="flex flex-col gap-1.5">
+              {shelfCount.items.map((item) => (
+                <div key={item.id} className="flex items-center justify-between text-xs">
+                  <span className="text-[#6b5e52]">{item.name}</span>
+                  <span className="font-bold text-[#8B1A2C]">{item.count}個</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-[#6b5e52] mt-2">
+              AIが映像から自動で数えているため、実際の個数と誤差が生じる場合があります・最終更新{" "}
+              {new Date(shelfCount.updatedAt).toLocaleTimeString("ja-JP", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
           </div>
         )}
 

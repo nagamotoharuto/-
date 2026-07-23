@@ -190,6 +190,7 @@ export default function InventoryPage() {
   const [addSaving, setAddSaving] = useState(false);
   const [stockUpdating, setStockUpdating] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [shelfCounts, setShelfCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (typeof window !== "undefined" && !sessionStorage.getItem("staff_auth")) {
@@ -197,6 +198,15 @@ export default function InventoryPage() {
       return;
     }
     loadProducts();
+
+    fetch("/api/shelf-count")
+      .then((r) => r.json())
+      .then((data: { items?: { id: string; count: number }[] }) => {
+        const map: Record<string, number> = {};
+        for (const item of data.items ?? []) map[item.id] = item.count;
+        setShelfCounts(map);
+      })
+      .catch(() => {});
   }, [router]);
 
   useEffect(() => {
@@ -549,6 +559,11 @@ export default function InventoryPage() {
                                   <Plus size={12} />
                                 </button>
                               </div>
+                              {product.category === "bread" && shelfCounts[product.id] !== undefined && (
+                                <span className="text-[10px] text-[#6b5e52] bg-[#f5f0eb] px-2 py-0.5 rounded-full">
+                                  AIカウント {shelfCounts[product.id]}個
+                                </span>
+                              )}
                               <button
                                 onClick={() =>
                                   updateEdit(product.id, "isAvailable", !edit.isAvailable)
