@@ -7,17 +7,37 @@ datasource db {
 }
 
 model Product {
-  id          String      @id @default(cuid())
+  id          String       @id @default(cuid())
   name        String
   category    String
   price       Int
   imageUrl    String
-  stock       Int         @default(0)
-  description String      @default("")
-  isAvailable Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  // Live count of what is physically on the shelf right now (kept up to date by
+  // the camera's AI count). Advance reservations are NOT capped by this — they
+  // are capped by the sale day's planned quantity in DailyStock.
+  stock       Int          @default(0)
+  description String       @default("")
+  isAvailable Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   orderItems  OrderItem[]
+  dailyStocks DailyStock[]
+}
+
+// How many of a product the bakery is producing for one sale day. Decided on
+// (or before) the previous business day, which is what makes reservations for
+// that day possible. RESERVATION_RATIO of this is bookable in advance.
+model DailyStock {
+  id         String   @id @default(cuid())
+  productId  String
+  date       String // 販売日 "YYYY-MM-DD" (JST)
+  plannedQty Int      @default(0) // 発注数
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, date])
+  @@index([date])
 }
 
 model Order {
@@ -25,14 +45,20 @@ model Order {
   nickname      String
   email         String      @default("")
   userType      String
+  pickupDate    String      @default("") // 受け取り日 "YYYY-MM-DD" (JST)
   pickupTime    String
   paymentMethod String
+  // pending | ready | completed | cancelled | released
+  // "released" = 受け取り時間を過ぎても来店がなく、自動で解放して店頭販売に戻した予約
   status        String      @default("pending")
+  releasedAt    DateTime?
   totalAmount   Int
   orderNumber   String      @unique
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   items         OrderItem[]
+
+  @@index([pickupDate])
 }
 
 model OrderItem {

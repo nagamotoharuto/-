@@ -2,13 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ShoppingCart, ArrowRight } from "lucide-react";
+import { ShoppingCart, ArrowRight, CalendarDays } from "lucide-react";
 import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
 import ProductCard from "@/components/features/ProductCard";
 import StepIndicator from "@/components/features/StepIndicator";
 import { useBakeryStore } from "@/lib/store";
-import { formatPrice, isWithinSalesHours } from "@/lib/utils";
+import {
+  formatJstDateLabel,
+  formatPrice,
+  getReservableDates,
+  isWithinSalesHours,
+  RESERVATION_RATIO,
+} from "@/lib/utils";
 
 const CATEGORIES = [
   { value: "all", label: "すべて" },
@@ -17,51 +23,62 @@ const CATEGORIES = [
   { value: "goods", label: "グッズ" },
 ];
 
-interface Product {
+// Mirrors ProductAvailability from @/lib/availability
+interface AvailabilityItem {
   id: string;
   name: string;
   category: string;
   price: number;
   imageUrl: string;
-  stock: number;
   description: string;
   isAvailable: boolean;
+  plannedQty: number;
+  reservableQty: number;
+  reservedQty: number;
+  remainingQty: number;
 }
 
 export default function MenuPage() {
   const router = useRouter();
-  const { user, getTotalItems, getTotal, cart } = useBakeryStore();
-  const [products, setProducts] = useState<Product[]>([]);
+  const { user, pickupDate, pickupTime, getTotalItems, getTotal } = useBakeryStore();
+  const [products, setProducts] = useState<AvailabilityItem[]>([]);
   const [category, setCategory] = useState("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !isWithinSalesHours()) {
-      router.push("/");
+    // The date drives which day's quota we are booking against, so it has to be
+    // chosen (step 1) before the menu can show anything meaningful.
+    if (!user || !isWithinSalesHours() || !pickupDate || !pickupTime) {
+      router.push(user && isWithinSalesHours() ? "/time" : "/");
       return;
     }
 
-    function loadProducts() {
-      return fetch("/api/products")
-        .then((r) => r.json())
-        .then((data) => setProducts(Array.isArray(data) ? data : []));
+    if (!getReservableDates().includes(pickupDate)) {
+      router.push("/time");
+      return;
     }
 
-    loadProducts().finally(() => setLoading(false));
+    function loadAvailability() {
+      return fetch(`/api/availability?date=${encodeURIComponent(pickupDate)}`)
+        .then((r) => r.json())
+        .then((data) => setProducts(Array.isArray(data.items) ? data.items : []));
+    }
 
-    // Poll so admin stock/availability changes show up without a manual refresh,
-    // and kick the customer out if the store closes while they're browsing
+    loadAvailability().finally(() => setLoading(false));
+
+    // Poll so another customer's booking (or a released no-show) shows up
+    // without a manual refresh, and kick the customer out if the store closes
     const id = setInterval(() => {
       if (!isWithinSalesHours()) {
         router.push("/");
         return;
       }
-      loadProducts();
+      loadAvailability();
     }, 5000);
     return () => clearInterval(id);
-  }, [user, router]);
+  }, [user, pickupDate, pickupTime, router]);
 
-  if (!user || !isWithinSalesHours()) return null;
+  if (!user || !isWithinSalesHours() || !pickupDate) return null;
 
   const filtered =
     category === "all" ? products : products.filter((p) => p.category === category);
@@ -74,7 +91,27 @@ export default function MenuPage() {
       <Header />
 
       <div className="max-w-md mx-auto w-full px-4">
-        <StepIndicator current={1} />
+        <StepIndicator current={2} />
+
+        {/* Selected pickup slot — availability below is for this date only */}
+        <button
+          onClick={() => router.push("/time")}
+          className="w-full bg-white rounded-2xl border border-[#e8e0d8] shadow-sm px-4 py-3 mb-4 flex items-center gap-3 text-left hover:border-[#8B1A2C] transition-colors"
+        >
+          <CalendarDays size={18} className="text-[#8B1A2C] flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-xs text-[#6b5e52]">受け取り日時</p>
+            <p className="text-sm font-bold text-[#1a1a1a]">
+              {formatJstDateLabel(pickupDate)} {pickupTime}
+            </p>
+          </div>
+          <span className="text-xs font-bold text-[#8B1A2C]">変更</span>
+        </button>
+
+        <p className="text-xs text-[#6b5e52] mb-4">
+          表示しているのは予約できる残り数です。飛び込みのお客様用に、各商品の
+          {Math.round((1 - RESERVATION_RATIO) * 100)}%は店頭に確保しています。
+        </p>
 
         {/* Category tabs */}
         <div className="flex gap-2 mb-4 overflow-x-auto pb-1">

@@ -2,24 +2,32 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Wallet, SmartphoneNfc, ArrowRight, Gift } from "lucide-react";
+import { Wallet, CreditCard, ArrowRight, Gift } from "lucide-react";
 import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
 import StepIndicator from "@/components/features/StepIndicator";
 import { useBakeryStore } from "@/lib/store";
-import { formatPrice } from "@/lib/utils";
+import { formatJstDateLabel, formatPrice } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
+// 店頭が全キャッシュレス決済に対応したため、個別ブランドではなく
+// 「現金 / キャッシュレス」の2択に集約している
 const PAYMENT_METHODS = [
-  { id: "cash", label: "現金", description: "お受け取り時にお支払い", icon: Wallet },
-  { id: "paypay", label: "PayPay", description: "QRコードでお支払い", icon: SmartphoneNfc },
+  { id: "cash", label: "現金", description: "お受け取り時に現金でお支払い", icon: Wallet },
+  {
+    id: "cashless",
+    label: "キャッシュレス",
+    description: "各種QR決済・交通系IC・クレジットカードに対応",
+    icon: CreditCard,
+  },
 ];
 
 const BREAD_KEYWORDS = ["パン", "ロール", "クリーム", "カレー"];
 
 export default function PaymentPage() {
   const router = useRouter();
-  const { paymentMethod, setPaymentMethod, getTotal, cart, user, pickupTime } = useBakeryStore();
+  const { paymentMethod, setPaymentMethod, getTotal, cart, user, pickupDate, pickupTime } =
+    useBakeryStore();
   const [selected, setSelected] = useState(paymentMethod || "cash");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -48,7 +56,7 @@ export default function PaymentPage() {
   const displayTotal = Math.max(0, baseTotal - freeBreadDiscount);
 
   async function handleOrder() {
-    if (!user || !pickupTime || cart.length === 0) {
+    if (!user || !pickupDate || !pickupTime || cart.length === 0) {
       router.push("/");
       return;
     }
@@ -63,6 +71,7 @@ export default function PaymentPage() {
           nickname: user.nickname,
           email: user.email,
           userType: user.userType,
+          pickupDate,
           pickupTime,
           paymentMethod: selected,
           items: cart.map((c) => ({ productId: c.productId, quantity: c.quantity })),
@@ -160,10 +169,14 @@ export default function PaymentPage() {
             <span className="font-bold">合計</span>
             <span className="text-xl font-black text-[#8B1A2C]">{formatPrice(displayTotal)}</span>
           </div>
-          {pickupTime && (
+          {pickupDate && pickupTime && (
             <div className="border-t border-[#e8e0d8] mt-3 pt-3 flex justify-between items-center">
-              <span className="font-bold">受け取り時間</span>
-              <span className="text-xl font-black text-[#8B1A2C]">{pickupTime}</span>
+              <span className="font-bold">受け取り日時</span>
+              <span className="text-sm font-black text-[#8B1A2C] text-right">
+                {formatJstDateLabel(pickupDate)}
+                <br />
+                {pickupTime}
+              </span>
             </div>
           )}
         </div>

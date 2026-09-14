@@ -8,11 +8,17 @@ import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
 import StepIndicator from "@/components/features/StepIndicator";
 import { useBakeryStore } from "@/lib/store";
-import { formatPrice, BREAD_ORDER_LIMIT, isWithinSalesHours } from "@/lib/utils";
+import {
+  formatJstDateLabel,
+  formatPrice,
+  BREAD_ORDER_LIMIT,
+  isWithinSalesHours,
+} from "@/lib/utils";
 
 export default function CartPage() {
   const router = useRouter();
-  const { user, cart, updateQuantity, removeFromCart, getTotal, getTotalItems } = useBakeryStore();
+  const { user, cart, pickupDate, pickupTime, updateQuantity, removeFromCart, getTotal, getTotalItems } =
+    useBakeryStore();
   const breadTotal = cart
     .filter((c) => c.category === "bread")
     .reduce((sum, c) => sum + c.quantity, 0);
@@ -57,7 +63,22 @@ export default function CartPage() {
       <Header />
 
       <div className="max-w-md mx-auto w-full px-4">
-        <StepIndicator current={1} />
+        <StepIndicator current={2} />
+
+        {pickupDate && pickupTime && (
+          <button
+            onClick={() => router.push("/time")}
+            className="w-full bg-white rounded-2xl border border-[#e8e0d8] shadow-sm px-4 py-3 mb-4 flex items-center justify-between text-left hover:border-[#8B1A2C] transition-colors"
+          >
+            <div>
+              <p className="text-xs text-[#6b5e52]">受け取り日時</p>
+              <p className="text-sm font-bold text-[#1a1a1a]">
+                {formatJstDateLabel(pickupDate)} {pickupTime}
+              </p>
+            </div>
+            <span className="text-xs font-bold text-[#8B1A2C]">変更</span>
+          </button>
+        )}
 
         <h2 className="text-lg font-bold mb-4 text-[#1a1a1a]">カート</h2>
 
@@ -132,10 +153,10 @@ export default function CartPage() {
       <div className="fixed bottom-16 left-0 right-0 px-4 z-40">
         <div className="max-w-md mx-auto">
           <button
-            onClick={() => router.push("/time")}
+            onClick={() => router.push("/payment")}
             className="w-full bg-[#F0AA5A] text-white rounded-2xl py-4 flex items-center justify-center gap-2 font-bold text-base shadow-lg hover:bg-[#D48A30] transition-colors"
           >
-            受け取り時間を選ぶ
+            お支払い方法へ
             <ArrowRight size={18} />
           </button>
         </div>

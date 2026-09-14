@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-const VALID_STATUSES = ["pending", "ready", "completed", "cancelled"] as const;
+// "released" = 未受取のまま受け取り時間を過ぎ、店頭販売に戻した予約
+const VALID_STATUSES = ["pending", "ready", "completed", "cancelled", "released"] as const;
 type OrderStatus = (typeof VALID_STATUSES)[number];
 
 export async function GET(
@@ -59,7 +60,12 @@ export async function PATCH(
 
     const order = await db.order.update({
       where: { id },
-      data: { status },
+      data: {
+        status,
+        // Stamp the moment staff hand the items back to the shelf, and clear it
+        // again if a release is undone.
+        releasedAt: status === "released" ? new Date() : null,
+      },
       include: {
         items: { include: { product: true } },
       },

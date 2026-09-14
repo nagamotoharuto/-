@@ -21,10 +21,12 @@ export interface UserProfile {
 interface BakeryStore {
   cart: CartItem[];
   user: UserProfile | null;
+  pickupDate: string;
   pickupTime: string;
   paymentMethod: string;
 
   setUser: (user: UserProfile) => void;
+  setPickupDate: (date: string) => void;
   setPickupTime: (time: string) => void;
   setPaymentMethod: (method: string) => void;
   addToCart: (item: Omit<CartItem, "quantity">) => void;
@@ -40,10 +42,19 @@ export const useBakeryStore = create<BakeryStore>()(
     (set, get) => ({
       cart: [],
       user: null,
+      pickupDate: "",
       pickupTime: "",
       paymentMethod: "cash",
 
       setUser: (user) => set({ user }),
+      // Availability is per sale date, so changing the date invalidates a cart
+      // that was built against another day's quota.
+      setPickupDate: (date) =>
+        set((state) =>
+          state.pickupDate === date
+            ? { pickupDate: date }
+            : { pickupDate: date, pickupTime: "", cart: [] }
+        ),
       setPickupTime: (time) => set({ pickupTime: time }),
       setPaymentMethod: (method) => set({ paymentMethod: method }),
 
@@ -96,6 +107,7 @@ export const useBakeryStore = create<BakeryStore>()(
       partialize: (state) => ({
         cart: state.cart,
         user: state.user,
+        pickupDate: state.pickupDate,
         pickupTime: state.pickupTime,
         paymentMethod: state.paymentMethod,
       }),

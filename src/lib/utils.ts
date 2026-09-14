@@ -88,11 +88,118 @@ export function isWithinSalesHours(date: Date = new Date()): boolean {
   return totalMin >= 11 * 60 && totalMin < 15 * 60;
 }
 
+// ---- 予約可能日（前営業日〜当日） ----
+
+// The bakery fixes each sale day's line-up and quantities on the previous
+// business day, so reservations for a sale day open at that day's 11:00.
+// Wednesday's stock is reservable from Tuesday 11:00; Monday's from Friday
+// 11:00, because the weekend is closed.
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+// "YYYY-MM-DD" in JST, independent of the host system's timezone
+export function toJstDateString(date: Date = new Date()): string {
+  return getJstParts(date).isoDate;
+}
+
+// Midnight JST of the given ISO date, as a real instant (JST is UTC+9, no DST)
+function jstDateStringToUtc(isoDate: string): Date {
+  return new Date(`${isoDate}T00:00:00+09:00`);
+}
+
+export function getNextBusinessDay(date: Date = new Date()): string {
+  let cursor = jstDateStringToUtc(toJstDateString(date));
+  // A run of closed days is at most a long weekend plus holidays; 14 is ample.
+  for (let i = 0; i < 14; i++) {
+    cursor = new Date(cursor.getTime() + MS_PER_DAY);
+    if (isBusinessDay(cursor)) return toJstDateString(cursor);
+  }
+  return toJstDateString(cursor);
+}
+
+export function getPreviousBusinessDay(date: Date = new Date()): string {
+  let cursor = jstDateStringToUtc(toJstDateString(date));
+  for (let i = 0; i < 14; i++) {
+    cursor = new Date(cursor.getTime() - MS_PER_DAY);
+    if (isBusinessDay(cursor)) return toJstDateString(cursor);
+  }
+  return toJstDateString(cursor);
+}
+
+// Sale dates a customer may reserve for right now: today (still being sold)
+// and the next business day (its line-up is already decided). Ordering only
+// happens while the counter is open, so this is empty outside sales hours.
+export function getReservableDates(now: Date = new Date()): string[] {
+  if (!isWithinSalesHours(now)) return [];
+  const dates: string[] = [];
+  // Today only counts while it is genuinely a business day with slots left —
+  // by late afternoon every pickup time has passed.
+  const today = toJstDateString(now);
+  if (isBusinessDay(now) && getAvailableTimeSlots(today, now).length > 0) {
+    dates.push(today);
+  }
+  dates.push(getNextBusinessDay(now));
+  return dates;
+}
+
+export function formatJstDateLabel(isoDate: string, now: Date = new Date()): string {
+  const [, month, day] = isoDate.split("-").map(Number);
+  const weekday = ["日", "月", "火", "水", "木", "金", "土"][
+    getJstParts(jstDateStringToUtc(isoDate)).day
+  ];
+  const today = toJstDateString(now);
+  const suffix = isoDate === today ? "（本日）" : isoDate === getNextBusinessDay(now) ? "（次の営業日）" : "";
+  return `${month}月${day}日（${weekday}）${suffix}`;
+}
+
+// Time slots still bookable for a sale date: every slot for a future date,
+// only slots later than the current time for today.
+export function getAvailableTimeSlots(isoDate: string, now: Date = new Date()): string[] {
+  const slots = getTimeSlots();
+  if (isoDate !== toJstDateString(now)) return slots;
+  const { hour, minute } = getJstParts(now);
+  const nowMin = hour * 60 + minute;
+  return slots.filter((slot) => {
+    const [h, m] = slot.split(":").map(Number);
+    return h * 60 + m > nowMin;
+  });
+}
+
+// ---- 予約枠（発注数の70%） ----
+
+// Only this share of a day's production is bookable in advance; the rest is
+// held back on the shelf for walk-up customers.
+export const RESERVATION_RATIO = 0.7;
+
+export function getReservableQty(plannedQty: number): number {
+  return Math.floor(Math.max(0, plannedQty) * RESERVATION_RATIO);
+}
+
+// ---- 未受取予約の自動解放 ----
+
+// A reservation not collected this long after its pickup time is released
+// back to the shelf for walk-up sale.
+export const RELEASE_GRACE_MINUTES = 15;
+
+// The instant a reservation for (date, time) becomes eligible for release
+export function getReleaseDeadline(pickupDate: string, pickupTime: string): Date {
+  const [h, m] = pickupTime.split(":").map(Number);
+  const base = new Date(`${pickupDate}T00:00:00+09:00`);
+  return new Date(base.getTime() + (h * 60 + m + RELEASE_GRACE_MINUTES) * 60_000);
+}
+
 export const USER_TYPE_LABELS: Record<string, string> = {
   student: "学生",
   nursing: "看護生",
   staff: "教職員",
   visitor: "一般来場者",
+};
+
+export const PAYMENT_LABELS: Record<string, string> = {
+  cash: "現金",
+  cashless: "キャッシュレス",
+  // Retained so orders placed before the cashless consolidation still render
+  paypay: "PayPay",
 };
 
 export const STAMPS_PER_CARD = 10;

@@ -11,9 +11,10 @@ interface Product {
   category: string;
   price: number;
   imageUrl: string;
-  stock: number;
   description: string;
   isAvailable: boolean;
+  /** 予約可能残数: this sale date's quota minus what is already booked */
+  remainingQty: number;
 }
 
 export default function ProductCard({ product }: { product: Product }) {
@@ -21,7 +22,7 @@ export default function ProductCard({ product }: { product: Product }) {
   const cartItem = cart.find((c) => c.productId === product.id);
   const qty = cartItem?.quantity ?? 0;
   const outOfHours = !isWithinSalesHours();
-  const soldOut = !product.isAvailable || product.stock === 0 || outOfHours;
+  const soldOut = !product.isAvailable || product.remainingQty === 0 || outOfHours;
   const isBread = product.category === "bread";
   const breadTotalInCart = cart
     .filter((c) => c.category === "bread")
@@ -30,7 +31,7 @@ export default function ProductCard({ product }: { product: Product }) {
 
   function handleAdd() {
     if (soldOut) return;
-    if (qty >= product.stock) return;
+    if (qty >= product.remainingQty) return;
     if (breadLimitReached) return;
     addToCart({
       productId: product.id,
@@ -65,12 +66,14 @@ export default function ProductCard({ product }: { product: Product }) {
         {soldOut && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <span className="bg-white text-[#1a1a1a] text-xs font-bold px-3 py-1 rounded-full">
-              {outOfHours && product.isAvailable && product.stock > 0 ? "営業時間外" : "売り切れ"}
+              {outOfHours && product.isAvailable && product.remainingQty > 0
+                ? "営業時間外"
+                : "予約枠終了"}
             </span>
           </div>
         )}
         <div className="absolute top-2 right-2 bg-white/90 text-[#6b5e52] text-xs px-2 py-0.5 rounded-full font-medium">
-          残り {product.stock}
+          予約可能 残り{product.remainingQty}
         </div>
       </div>
       {isBread && (
@@ -106,7 +109,7 @@ export default function ProductCard({ product }: { product: Product }) {
               <span className="text-sm font-bold w-4 text-center">{qty}</span>
               <button
                 onClick={handleAdd}
-                disabled={qty >= product.stock || breadLimitReached}
+                disabled={qty >= product.remainingQty || breadLimitReached}
                 className="w-7 h-7 bg-[#8B1A2C] text-white rounded-full flex items-center justify-center hover:bg-[#A52235] transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-90"
               >
                 <Plus size={13} />
