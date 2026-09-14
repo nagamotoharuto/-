@@ -2,8 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, RefreshCw, BarChart2, AlertTriangle, Croissant, CupSoda, Shirt } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
+import {
+  ClipboardList,
+  RefreshCw,
+  BarChart2,
+  AlertTriangle,
+  Croissant,
+  CupSoda,
+  Shirt,
+  PackageOpen,
+} from "lucide-react";
+import {
+  formatJstDateLabel,
+  formatPrice,
+  getReleaseDeadline,
+  PAYMENT_LABELS,
+  RELEASE_GRACE_MINUTES,
+  toJstDateString,
+} from "@/lib/utils";
 import StaffHeader from "@/components/features/StaffHeader";
 
 interface Order {
@@ -12,9 +28,11 @@ interface Order {
   nickname: string;
   email: string;
   userType: string;
+  pickupDate: string;
   pickupTime: string;
   paymentMethod: string;
   status: string;
+  releasedAt: string | null;
   totalAmount: number;
   createdAt: string;
   items: Array<{ quantity: number; price: number; name: string; category: string }>;
@@ -25,6 +43,7 @@ const STATUS_LABELS: Record<string, string> = {
   ready: "準備完了",
   completed: "受け渡し済",
   cancelled: "キャンセル",
+  released: "解放済（店頭へ）",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -32,11 +51,7 @@ const STATUS_COLORS: Record<string, string> = {
   ready: "bg-green-100 text-green-800",
   completed: "bg-gray-100 text-gray-600",
   cancelled: "bg-red-100 text-red-700",
-};
-
-const PAYMENT_LABELS: Record<string, string> = {
-  cash: "現金",
-  paypay: "PayPay",
+  released: "bg-orange-100 text-orange-800",
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -58,6 +73,9 @@ export default function StaffDashboardPage() {
   const [filter, setFilter] = useState("all");
   const [tab, setTab] = useState<"orders" | "sales">("orders");
   const [salesRange, setSalesRange] = useState<"today" | "all">("today");
+  const [releasing, setReleasing] = useState<string | null>(null);
+  // Re-renders the countdowns once a minute without refetching
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     if (typeof window !== "undefined" && !sessionStorage.getItem("staff_auth")) {
@@ -65,6 +83,24 @@ export default function StaffDashboardPage() {
       return;
     }
     loadOrders();
+
+    // No-shows are swept server-side; the dashboard drives the sweep while it
+    // is open, and placing an order triggers one too, so slots never stay stuck.
+    const sweepId = setInterval(() => {
+      fetch("/api/orders/release", { method: "POST" })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.released > 0) loadOrders();
+        })
+        .catch(() => {});
+    }, 30_000);
+
+    const clockId = setInterval(() => setNow(Date.now()), 30_000);
+
+    return () => {
+      clearInterval(sweepId);
+      clearInterval(clockId);
+    };
   }, [router]);
 
   async function loadOrders() {
@@ -73,6 +109,21 @@ export default function StaffDashboardPage() {
     const data = await res.json();
     setOrders(Array.isArray(data) ? data : []);
     setLoading(false);
+  }
+
+  // Hand a single reservation back to the shelf without waiting for the sweep
+  async function releaseOrder(orderId: string) {
+    setReleasing(orderId);
+    try {
+      await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "released" }),
+      });
+      await loadOrders();
+    } finally {
+      setReleasing(null);
+    }
   }
 
   async function updateStatus(orderId: string, status: string) {
@@ -100,32 +151,48 @@ export default function StaffDashboardPage() {
   const todayPending = orders.filter((o) => o.status === "pending").length;
   const todayReady = orders.filter((o) => o.status === "ready").length;
 
-  function isToday(dateStr: string) {
-    const d = new Date(dateStr);
-    const now = new Date();
-    return (
-      d.getFullYear() === now.getFullYear() &&
-      d.getMonth() === now.getMonth() &&
-      d.getDate() === now.getDate()
-    );
+  // Sales are grouped by the day the items are handed over, not the day the
+  // reservation was taken — a reservation made on the previous business day
+  // belongs to the sale day it was placed for.
+  function isForToday(order: Order) {
+    return order.pickupDate === toJstDateString(new Date(now));
   }
 
-  // "受取未到達": prepared and waiting, but past the promised pickup time
+  // Still awaiting collection: the only orders a release applies to
+  function isAwaitingPickup(order: Order) {
+    return order.status === "pending" || order.status === "ready";
+  }
+
+  // "受取未到達": past the promised pickup time but not yet released
   function isOverdue(order: Order) {
-    if (order.status !== "ready") return false;
+    if (!isAwaitingPickup(order) || !order.pickupDate) return false;
     const [h, m] = order.pickupTime.split(":").map(Number);
     if (Number.isNaN(h) || Number.isNaN(m)) return false;
-    const pickupAt = new Date(order.createdAt);
-    pickupAt.setHours(h, m, 0, 0);
-    return Date.now() > pickupAt.getTime();
+    const pickupAt = new Date(`${order.pickupDate}T00:00:00+09:00`).getTime() + (h * 60 + m) * 60_000;
+    return now > pickupAt;
+  }
+
+  // Minutes left before the grace period expires and the slot is auto-released.
+  // Negative once the sweep is due (it runs on the next 30s tick).
+  function minutesUntilRelease(order: Order): number | null {
+    if (!isAwaitingPickup(order) || !order.pickupDate) return null;
+    const deadline = getReleaseDeadline(order.pickupDate, order.pickupTime).getTime();
+    return Math.ceil((deadline - now) / 60_000);
   }
 
   const overdueOrders = orders.filter(isOverdue);
   const todayOverdue = overdueOrders.length;
+  const todayReleased = orders.filter(
+    (o) => o.status === "released" && o.pickupDate === toJstDateString(new Date(now))
+  ).length;
 
   // Sales summary calculations
-  const rangedOrders = salesRange === "today" ? orders.filter((o) => isToday(o.createdAt)) : orders;
-  const soldOrders = rangedOrders.filter((o) => o.status !== "cancelled");
+  const rangedOrders = salesRange === "today" ? orders.filter(isForToday) : orders;
+  // Cancelled and released reservations never reached the customer through the
+  // app — released items went back to the shelf for walk-up sale.
+  const soldOrders = rangedOrders.filter(
+    (o) => o.status !== "cancelled" && o.status !== "released"
+  );
   const completedOrders = rangedOrders.filter((o) => o.status === "completed");
   const totalSales = completedOrders.reduce((sum, o) => sum + o.totalAmount, 0);
   const totalOrderCount = soldOrders.length;
@@ -214,7 +281,7 @@ export default function StaffDashboardPage() {
         {tab === "orders" ? (
           <>
             {/* Quick stats */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-4 gap-2 mb-4">
               <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-3 text-center">
                 <p className="text-2xl font-black text-yellow-700">{todayPending}</p>
                 <p className="text-xs text-yellow-600">受付中</p>
@@ -227,7 +294,16 @@ export default function StaffDashboardPage() {
                 <p className="text-2xl font-black text-red-700">{todayOverdue}</p>
                 <p className="text-xs text-red-600">受取未到達</p>
               </div>
+              <div className="bg-orange-50 border border-orange-200 rounded-2xl p-3 text-center">
+                <p className="text-2xl font-black text-orange-700">{todayReleased}</p>
+                <p className="text-xs text-orange-600">本日解放</p>
+              </div>
             </div>
+
+            <p className="text-xs text-[#6b5e52] bg-white border border-[#e8e0d8] rounded-xl px-3 py-2 mb-4">
+              受け取り時間から{RELEASE_GRACE_MINUTES}分を過ぎた未受取の予約は自動で解放され、店頭販売に戻ります。
+              この画面を開いている間は自動で処理され、「今すぐ解放」で手動解放もできます。
+            </p>
 
             {/* Filter tabs */}
             <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
@@ -236,6 +312,7 @@ export default function StaffDashboardPage() {
                 { value: "pending", label: "受付中" },
                 { value: "ready", label: "準備完了" },
                 { value: "overdue", label: "受取未到達" },
+                { value: "released", label: "解放済" },
                 { value: "completed", label: "受け渡し済" },
               ].map((f) => (
                 <button
@@ -268,6 +345,7 @@ export default function StaffDashboardPage() {
               <div className="flex flex-col gap-3">
                 {filtered.map((order) => {
                   const overdue = isOverdue(order);
+                  const minsLeft = minutesUntilRelease(order);
                   return (
                   <div
                     key={order.id}
@@ -291,7 +369,16 @@ export default function StaffDashboardPage() {
                             </span>
                           )}
                         </div>
-                        <span className="text-lg font-black text-[#1a1a1a]">{order.pickupTime}</span>
+                        <div className="text-right">
+                          {order.pickupDate && (
+                            <p className="text-xs text-[#6b5e52] leading-tight">
+                              {formatJstDateLabel(order.pickupDate, new Date(now))}
+                            </p>
+                          )}
+                          <span className="text-lg font-black text-[#1a1a1a] leading-tight">
+                            {order.pickupTime}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-[#6b5e52]">
                         <span className="font-bold text-[#1a1a1a]">{order.nickname}</span>
@@ -317,6 +404,32 @@ export default function StaffDashboardPage() {
                         </span>
                       ))}
                     </div>
+
+                    {minsLeft !== null && (
+                      <div className="px-4 pb-2">
+                        {minsLeft > 0 ? (
+                          <p className="text-xs text-[#6b5e52]">
+                            自動解放まであと <strong className="text-[#1a1a1a]">{minsLeft}分</strong>
+                          </p>
+                        ) : (
+                          <p className="text-xs font-bold text-orange-700">
+                            解放待ち（まもなく自動で店頭販売に戻ります）
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {order.status === "released" && order.releasedAt && (
+                      <div className="px-4 pb-2">
+                        <p className="text-xs text-orange-700">
+                          {new Date(order.releasedAt).toLocaleTimeString("ja-JP", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                          に解放し、店頭販売に戻しました
+                        </p>
+                      </div>
+                    )}
                     {/* Action buttons */}
                     <div className="px-4 pb-4 flex gap-2">
                       {order.status === "pending" && (
@@ -341,6 +454,16 @@ export default function StaffDashboardPage() {
                           className="flex-1 bg-[#8B1A2C] text-white text-xs font-bold py-2 rounded-xl hover:bg-[#A52235] transition-colors"
                         >
                           受け渡し完了
+                        </button>
+                      )}
+                      {isAwaitingPickup(order) && (
+                        <button
+                          onClick={() => releaseOrder(order.id)}
+                          disabled={releasing === order.id}
+                          className="flex items-center justify-center gap-1 px-4 bg-orange-50 text-orange-700 text-xs font-bold py-2 rounded-xl border border-orange-200 hover:bg-orange-100 transition-colors disabled:opacity-50"
+                        >
+                          <PackageOpen size={13} />
+                          {releasing === order.id ? "解放中..." : "今すぐ解放"}
                         </button>
                       )}
                     </div>

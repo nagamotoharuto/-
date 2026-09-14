@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { BREAD_ORDER_LIMIT, isWithinSalesHours } from "@/lib/utils";
+import {
+  BREAD_ORDER_LIMIT,
+  getAvailableTimeSlots,
+  getReservableDates,
+  isWithinSalesHours,
+  toJstDateString,
+} from "@/lib/utils";
+import { getAvailability, releaseOverdueReservations } from "@/lib/availability";
 
+const PAYMENT_METHODS = ["cash", "cashless"];
 
 function getTodayString(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toJstDateString();
 }
 
 function getYesterdayString(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 10);
+  return toJstDateString(new Date(Date.now() - 24 * 60 * 60 * 1000));
 }
 
 export async function GET(request: NextRequest) {
@@ -32,21 +38,26 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { nickname, email, userType, pickupTime, paymentMethod, items } = body as {
+    const { nickname, email, userType, pickupDate, pickupTime, paymentMethod, items } = body as {
       nickname: string;
       email: string;
       userType: string;
+      pickupDate: string;
       pickupTime: string;
       paymentMethod: string;
       items: { productId: string; quantity: number }[];
     };
 
-    if (!nickname || !userType || !pickupTime || !paymentMethod || !items?.length) {
+    if (!nickname || !userType || !pickupDate || !pickupTime || !paymentMethod || !items?.length) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: "有効なメールアドレスを入力してください" }, { status: 400 });
+    }
+
+    if (!PAYMENT_METHODS.includes(paymentMethod)) {
+      return NextResponse.json({ error: "お支払い方法を選択してください" }, { status: 400 });
     }
 
     if (!isWithinSalesHours()) {
@@ -56,11 +67,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Reservations open on the previous business day: today's sale and the next
+    // business day's are both bookable while the counter is open.
+    if (!getReservableDates().includes(pickupDate)) {
+      return NextResponse.json(
+        { error: "その日付は現在ご予約いただけません。受け取り日を選び直してください" },
+        { status: 400 }
+      );
+    }
+
+    if (!getAvailableTimeSlots(pickupDate).includes(pickupTime)) {
+      return NextResponse.json(
+        { error: "その受け取り時間はすでに過ぎています。時間を選び直してください" },
+        { status: 400 }
+      );
+    }
+
+    // Hand back any no-show reservations first so their slots count as free here
+    await releaseOverdueReservations();
+
     const productIds = items.map((i) => i.productId);
     const products = await db.product.findMany({ where: { id: { in: productIds } } });
     const productMap = new Map(products.map((p) => [p.id, p]));
 
-    // Validate stock and availability
+    const availability = await getAvailability(pickupDate);
+    const availabilityMap = new Map(availability.map((a) => [a.id, a]));
+
+    // Validate against the sale date's reservation quota (発注数の70%)
     for (const item of items) {
       const product = productMap.get(item.productId);
       if (!product) {
@@ -69,9 +102,12 @@ export async function POST(request: NextRequest) {
       if (!product.isAvailable) {
         return NextResponse.json({ error: `「${product.name}」は現在販売停止中です` }, { status: 400 });
       }
-      if (product.stock < item.quantity) {
+      const slot = availabilityMap.get(item.productId);
+      if (!slot || slot.remainingQty < item.quantity) {
         return NextResponse.json(
-          { error: `「${product.name}」の在庫が不足しています（残り${product.stock}個）` },
+          {
+            error: `「${product.name}」の予約枠が不足しています（予約可能残り${slot?.remainingQty ?? 0}個）`,
+          },
           { status: 400 }
         );
       }
@@ -112,13 +148,10 @@ export async function POST(request: NextRequest) {
     const count = await db.order.count();
     const orderNumber = String(count + 1);
 
-    // Decrement stock
-    for (const item of items) {
-      await db.product.update({
-        where: { id: item.productId },
-        data: { stock: { decrement: item.quantity } },
-      });
-    }
+    // Product.stock is the live shelf count, maintained by the camera's AI count
+    // — it is deliberately NOT decremented here. A reservation consumes a slot
+    // out of the sale date's quota, which is derived from the orders themselves,
+    // so cancelling or releasing an order gives the slot straight back.
 
     // Create order
     const order = await db.order.create({
@@ -126,6 +159,7 @@ export async function POST(request: NextRequest) {
         nickname,
         email,
         userType,
+        pickupDate,
         pickupTime,
         paymentMethod,
         totalAmount,

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import ChatWidget from "@/components/features/ChatWidget";
 
 export const metadata: Metadata = {
   title: "University Bakery | 事前予約",
@@ -24,7 +23,6 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col antialiased">
         {children}
-        <ChatWidget />
       </body>
     </html>
   );

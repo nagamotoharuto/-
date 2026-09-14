@@ -6,9 +6,10 @@ interface Step {
   number: number;
 }
 
+// 受け取り日ごとに予約枠が違うため、日時を決めてから商品を選ぶ
 const STEPS: Step[] = [
-  { number: 1, label: "商品選択" },
-  { number: 2, label: "時間指定" },
+  { number: 1, label: "日時指定" },
+  { number: 2, label: "商品選択" },
   { number: 3, label: "確認・注文" },
 ];
 

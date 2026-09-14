@@ -7,7 +7,7 @@ import { Star, Gift, Flame, ShoppingBag, Calendar, ChevronDown, ChevronUp } from
 import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
 import { useBakeryStore } from "@/lib/store";
-import { STAMPS_PER_CARD, USER_TYPE_LABELS, formatPrice } from "@/lib/utils";
+import { STAMPS_PER_CARD, USER_TYPE_LABELS, formatJstDateLabel, formatPrice } from "@/lib/utils";
 
 interface StampCard {
   stamps: number;
@@ -29,6 +29,8 @@ interface Order {
   id: string;
   orderNumber: string;
   createdAt: string;
+  pickupDate: string;
+  pickupTime: string;
   status: string;
   totalAmount: number;
   items: OrderItem[];
@@ -45,6 +47,7 @@ const STATUS_LABELS: Record<string, string> = {
   ready: "準備完了",
   completed: "受け渡し済",
   cancelled: "キャンセル",
+  released: "時間超過で取消",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -52,7 +55,12 @@ const STATUS_COLORS: Record<string, string> = {
   ready: "bg-green-100 text-green-800",
   completed: "bg-gray-100 text-gray-600",
   cancelled: "bg-red-100 text-red-700",
+  released: "bg-orange-100 text-orange-800",
 };
+
+// A reservation the customer never collected was handed back to the shelf, so
+// it counts no more towards the bread dex than a cancelled one does.
+const UNFULFILLED_STATUSES = ["cancelled", "released"];
 
 export default function MyPage() {
   const router = useRouter();
@@ -101,7 +109,7 @@ export default function MyPage() {
   // bread the next day.
   const breadMap = new Map<string, number>();
   for (const order of orders) {
-    if (order.status === "cancelled") continue;
+    if (UNFULFILLED_STATUSES.includes(order.status)) continue;
     for (const item of order.items) {
       if (item.category === "bread") {
         breadMap.set(item.name, (breadMap.get(item.name) ?? 0) + item.quantity);
@@ -122,7 +130,7 @@ export default function MyPage() {
     dexMap.set(p.name, { name: p.name, imageUrl: p.imageUrl });
   }
   for (const order of orders) {
-    if (order.status === "cancelled") continue;
+    if (UNFULFILLED_STATUSES.includes(order.status)) continue;
     for (const item of order.items) {
       if (item.category === "bread" && !dexMap.has(item.name)) {
         dexMap.set(item.name, { name: item.name, imageUrl: item.imageUrl });
@@ -364,14 +372,18 @@ export default function MyPage() {
               ) : (
                 <div className="flex flex-col gap-2">
                   {orders.map((order) => {
-                    const date = new Date(order.createdAt).toLocaleDateString("ja-JP", {
-                      month: "numeric",
-                      day: "numeric",
-                    });
-                    const time = new Date(order.createdAt).toLocaleTimeString("ja-JP", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    });
+                    const date = order.pickupDate
+                      ? formatJstDateLabel(order.pickupDate).replace(/（.*?）$/, "")
+                      : new Date(order.createdAt).toLocaleDateString("ja-JP", {
+                          month: "numeric",
+                          day: "numeric",
+                        });
+                    const time =
+                      order.pickupTime ||
+                      new Date(order.createdAt).toLocaleTimeString("ja-JP", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
                     return (
                       <div
                         key={order.id}

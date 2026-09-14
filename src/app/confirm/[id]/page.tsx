@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { CheckCircle, MapPin, Clock, Receipt, Home, User } from "lucide-react";
 import { useBakeryStore } from "@/lib/store";
-import { formatPrice } from "@/lib/utils";
+import { formatJstDateLabel, formatPrice, PAYMENT_LABELS, RELEASE_GRACE_MINUTES } from "@/lib/utils";
 import BottomNav from "@/components/features/BottomNav";
 
 interface OrderItem {
@@ -19,17 +19,13 @@ interface Order {
   orderNumber: string;
   nickname: string;
   userType: string;
+  pickupDate: string;
   pickupTime: string;
   paymentMethod: string;
   status: string;
   totalAmount: number;
   items: OrderItem[];
 }
-
-const PAYMENT_LABELS: Record<string, string> = {
-  cash: "現金",
-  paypay: "PayPay",
-};
 
 export default function ConfirmPage() {
   const params = useParams();
@@ -87,12 +83,17 @@ export default function ConfirmPage() {
         </div>
       </div>
 
-      {/* Pickup time - big display */}
+      {/* Pickup slot - big display */}
       <div className="mx-4 bg-white/10 rounded-2xl p-4 mb-3 text-white text-center">
         <div className="flex items-center justify-center gap-2 mb-1">
           <Clock size={16} className="text-[#F0AA5A]" />
-          <span className="text-xs text-[#F5C0C8]">受け取り時間</span>
+          <span className="text-xs text-[#F5C0C8]">受け取り日時</span>
         </div>
+        {order.pickupDate && (
+          <p className="text-base font-bold text-[#F5C0C8]">
+            {formatJstDateLabel(order.pickupDate)}
+          </p>
+        )}
         <p className="text-4xl font-black">{order.pickupTime}</p>
       </div>
 
@@ -125,9 +126,10 @@ export default function ConfirmPage() {
           <p className="text-xs font-bold text-[#6b5e52] mb-3">How to pick up</p>
           <ol className="space-y-2">
             {[
-              "指定の時間に1F 正面玄関前にお越しください",
+              "指定の日時に1F 正面玄関前にお越しください",
               "スタッフに名前をお伝えください",
               "商品をお受け取りの際にお支払いください",
+              `受け取り時間から${RELEASE_GRACE_MINUTES}分を過ぎると予約は自動で取り消されます`,
             ].map((step, i) => (
               <li key={i} className="flex items-start gap-2 text-xs text-[#6b5e52]">
                 <span className="w-4 h-4 bg-[#8B1A2C] text-white rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold">
