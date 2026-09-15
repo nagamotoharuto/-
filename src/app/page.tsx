@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ChefHat, ShoppingBag, Clock, CheckCircle, ArrowRight, MapPin, Camera } from "lucide-react";
 import { useBakeryStore } from "@/lib/store";
 import BottomNav from "@/components/features/BottomNav";
-import { isWithinSalesHours } from "@/lib/utils";
+import { formatJstDateLabel, getReservableDate, isWithinSalesHours } from "@/lib/utils";
 
 const USER_TYPES = [
   { value: "student", label: "学生" },
@@ -23,9 +23,13 @@ export default function HomePage() {
   const [userType, setUserType] = useState(user?.userType ?? "student");
   const [error, setError] = useState("");
   const [storeOpen, setStoreOpen] = useState(() => isWithinSalesHours());
+  const [reservableDate, setReservableDate] = useState(() => getReservableDate());
 
   useEffect(() => {
-    const id = setInterval(() => setStoreOpen(isWithinSalesHours()), 30_000);
+    const id = setInterval(() => {
+      setStoreOpen(isWithinSalesHours());
+      setReservableDate(getReservableDate());
+    }, 30_000);
     return () => clearInterval(id);
   }, []);
 
@@ -39,11 +43,7 @@ export default function HomePage() {
       return;
     }
     setUser({ nickname: fullName.trim(), email: email.trim(), userType });
-    if (!isWithinSalesHours()) {
-      setError("現在は営業時間外です。営業日（月〜金）11:00〜15:00にご利用ください");
-      return;
-    }
-    router.push("/menu");
+    router.push("/time");
   }
 
   return (
@@ -70,6 +70,9 @@ export default function HomePage() {
             <span className={`w-1.5 h-1.5 rounded-full ${storeOpen ? "bg-green-300" : "bg-gray-300"}`} />
             {storeOpen ? "只今営業中" : "只今営業時間外"}
           </div>
+          <p className="text-xs text-[#A8C8F0] mt-2">
+            {formatJstDateLabel(reservableDate)}分のご予約を受付中
+          </p>
         </div>
       </div>
 
@@ -80,8 +83,8 @@ export default function HomePage() {
         </p>
         <div className="grid grid-cols-3 gap-3 mb-8">
           {[
-            { icon: ShoppingBag, label: "商品を選ぶ", step: "01" },
-            { icon: Clock, label: "時間を指定", step: "02" },
+            { icon: Clock, label: "日時を指定", step: "01" },
+            { icon: ShoppingBag, label: "商品を選ぶ", step: "02" },
             { icon: CheckCircle, label: "予約完了", step: "03" },
           ].map(({ icon: Icon, label, step }) => (
             <div
@@ -174,7 +177,7 @@ export default function HomePage() {
             onClick={handleStart}
             className="w-full bg-[#8B1A2C] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 text-base hover:bg-[#A52235] transition-colors active:scale-95"
           >
-            メニューを見る
+            予約をはじめる
             <ArrowRight size={18} />
           </button>
         </div>

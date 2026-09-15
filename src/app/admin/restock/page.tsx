@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Truck, RefreshCw, Printer, AlertTriangle } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import StaffHeader from "@/components/features/StaffHeader";
-import PlannedQtyEditor from "./PlannedQtyEditor";
 
 interface Product {
   id: string;
@@ -150,10 +149,9 @@ export default function RestockPage() {
         </div>
 
         <p className="text-xs text-[#6b5e52] mb-4">
-          {today} 時点の本日の販売実績です。この表を見て、次の営業日の発注数を決めてください。
+          {today} 時点の本日の販売実績です。この表を見て次の営業日の発注数を決め、
+          「商品・在庫」画面の販売日タブから入力してください。
         </p>
-
-        <PlannedQtyEditor />
 
         {loading ? (
           <div className="bg-white rounded-2xl h-64 animate-pulse border border-[#e8e0d8]" />

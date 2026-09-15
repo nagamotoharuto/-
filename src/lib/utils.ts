@@ -126,20 +126,25 @@ export function getPreviousBusinessDay(date: Date = new Date()): string {
   return toJstDateString(cursor);
 }
 
-// Sale dates a customer may reserve for right now: today (still being sold)
-// and the next business day (its line-up is already decided). Ordering only
-// happens while the counter is open, so this is empty outside sales hours.
-export function getReservableDates(now: Date = new Date()): string[] {
-  if (!isWithinSalesHours(now)) return [];
-  const dates: string[] = [];
-  // Today only counts while it is genuinely a business day with slots left —
-  // by late afternoon every pickup time has passed.
+/**
+ * The one sale date currently taking reservations.
+ *
+ * Today's session stays open until its last pickup slot passes (15:00). Once it
+ * closes, reservations roll over to the next business day, so the evening after
+ * a sale day is when the following day's bookings come in — which is also when
+ * staff have finished deciding that day's line-up. Reservations therefore run
+ * through the night and across the weekend, unlike the counter itself.
+ */
+export function getReservableDate(now: Date = new Date()): string {
   const today = toJstDateString(now);
   if (isBusinessDay(now) && getAvailableTimeSlots(today, now).length > 0) {
-    dates.push(today);
+    return today;
   }
-  dates.push(getNextBusinessDay(now));
-  return dates;
+  return getNextBusinessDay(now);
+}
+
+export function getReservableDates(now: Date = new Date()): string[] {
+  return [getReservableDate(now)];
 }
 
 export function formatJstDateLabel(isoDate: string, now: Date = new Date()): string {
@@ -148,8 +153,15 @@ export function formatJstDateLabel(isoDate: string, now: Date = new Date()): str
     getJstParts(jstDateStringToUtc(isoDate)).day
   ];
   const today = toJstDateString(now);
-  const suffix = isoDate === today ? "（本日）" : isoDate === getNextBusinessDay(now) ? "（次の営業日）" : "";
+  const suffix =
+    isoDate === today ? "（本日）" : isoDate === getNextBusinessDay(now) ? "（次の営業日）" : "";
   return `${month}月${day}日（${weekday}）${suffix}`;
+}
+
+// 予約受付は営業時間と別。営業終了後も翌営業日分の予約を受け付けるため、
+// 「店舗が開いているか」と「予約できるか」を分けて扱う。
+export function isReservationOpen(now: Date = new Date()): boolean {
+  return getAvailableTimeSlots(getReservableDate(now), now).length > 0;
 }
 
 // Time slots still bookable for a sale date: every slot for a future date,

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Plus, Minus } from "lucide-react";
 import { useBakeryStore } from "@/lib/store";
-import { formatPrice, BREAD_ORDER_LIMIT, isWithinSalesHours } from "@/lib/utils";
+import { formatPrice, BREAD_ORDER_LIMIT } from "@/lib/utils";
 
 interface Product {
   id: string;
@@ -21,8 +21,7 @@ export default function ProductCard({ product }: { product: Product }) {
   const { cart, addToCart, updateQuantity } = useBakeryStore();
   const cartItem = cart.find((c) => c.productId === product.id);
   const qty = cartItem?.quantity ?? 0;
-  const outOfHours = !isWithinSalesHours();
-  const soldOut = !product.isAvailable || product.remainingQty === 0 || outOfHours;
+  const soldOut = !product.isAvailable || product.remainingQty === 0;
   const isBread = product.category === "bread";
   const breadTotalInCart = cart
     .filter((c) => c.category === "bread")
@@ -66,9 +65,7 @@ export default function ProductCard({ product }: { product: Product }) {
         {soldOut && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <span className="bg-white text-[#1a1a1a] text-xs font-bold px-3 py-1 rounded-full">
-              {outOfHours && product.isAvailable && product.remainingQty > 0
-                ? "営業時間外"
-                : "予約枠終了"}
+              {product.isAvailable ? "予約枠終了" : "販売停止中"}
             </span>
           </div>
         )}

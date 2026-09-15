@@ -17,6 +17,8 @@ export interface ProductAvailability {
   imageUrl: string;
   description: string;
   isAvailable: boolean;
+  /** その日の品揃えに入っているか（発注数が1個以上）。0なら customers never see it. */
+  isOffered: boolean;
   /** 発注数: how many are being produced for this sale date */
   plannedQty: number;
   /** 予約枠: the bookable share of plannedQty (the rest is held for walk-ups) */
@@ -96,6 +98,9 @@ export async function getAvailability(date: string): Promise<ProductAvailability
       imageUrl: p.imageUrl,
       description: p.description,
       isAvailable: p.isAvailable,
+      // The bread line-up changes daily: a product with nothing produced for
+      // this date is simply not on that day's menu.
+      isOffered: plannedQty > 0,
       plannedQty,
       reservableQty,
       reservedQty,
