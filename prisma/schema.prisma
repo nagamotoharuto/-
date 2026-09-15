@@ -32,11 +32,42 @@ model DailyStock {
   productId  String
   date       String // 販売日 "YYYY-MM-DD" (JST)
   plannedQty Int      @default(0) // 発注数
+  // 閉店時の残数。staff enter it at closing, so 実売数 = plannedQty - closingQty.
+  // null は未入力（閉店処理がまだ済んでいない）を表す。
+  closingQty Int?
+  closedAt   DateTime?
+  // 店頭在庫が初めて0になった時刻。カメラのAIカウント由来で、
+  // 導入前後の「売り切れ時刻」比較の材料になる。
+  soldOutAt  DateTime?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, date])
+  @@index([date])
+}
+
+// カメラのAIカウントの時系列。売り切れ時刻の裏付けと、
+// 陳列数の推移を後から追えるようにするための記録。
+model ShelfSnapshot {
+  id         String   @id @default(cuid())
+  productId  String
+  date       String // 販売日 "YYYY-MM-DD" (JST)
+  count      Int
+  recordedAt DateTime @default(now())
+
+  @@index([date])
+  @@index([productId, date])
+}
+
+// 飛び込み客が売り切れで買えなかった件数。アプリからは観測できないため、
+// 販売員が店頭でタップして1件ずつ記録する。
+model SoldOutTurnaway {
+  id          String   @id @default(cuid())
+  date        String // 販売日 "YYYY-MM-DD" (JST)
+  productName String   @default("") // 分かれば何を求めていたか
+  recordedAt  DateTime @default(now())
+
   @@index([date])
 }
 

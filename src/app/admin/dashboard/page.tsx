@@ -11,6 +11,8 @@ import {
   CupSoda,
   Shirt,
   PackageOpen,
+  UserX,
+  Undo2,
 } from "lucide-react";
 import {
   formatJstDateLabel,
@@ -74,6 +76,9 @@ export default function StaffDashboardPage() {
   const [tab, setTab] = useState<"orders" | "sales">("orders");
   const [salesRange, setSalesRange] = useState<"today" | "all">("today");
   const [releasing, setReleasing] = useState<string | null>(null);
+  // 飛び込み客が売り切れで買えなかった件数。アプリからは観測できないので手入力。
+  const [turnawayCount, setTurnawayCount] = useState<number | null>(null);
+  const [turnawayBusy, setTurnawayBusy] = useState(false);
   // Re-renders the countdowns once a minute without refetching
   const [now, setNow] = useState(() => Date.now());
 
@@ -83,6 +88,7 @@ export default function StaffDashboardPage() {
       return;
     }
     loadOrders();
+    loadTurnaway();
 
     // No-shows are swept server-side; the dashboard drives the sweep while it
     // is open, and placing an order triggers one too, so slots never stay stuck.
@@ -97,11 +103,37 @@ export default function StaffDashboardPage() {
 
     const clockId = setInterval(() => setNow(Date.now()), 30_000);
 
+    // Poll the AI shelf count so a reading — and therefore a sell-out time — is
+    // recorded throughout the sale, not only while a customer has the camera
+    // page open. The staff screen is the one that stays open all service.
+    const shelfId = setInterval(() => {
+      fetch("/api/shelf-count").catch(() => {});
+    }, 60_000);
+
     return () => {
       clearInterval(sweepId);
       clearInterval(clockId);
+      clearInterval(shelfId);
     };
   }, [router]);
+
+  function loadTurnaway() {
+    fetch("/api/turnaway")
+      .then((r) => r.json())
+      .then((data) => setTurnawayCount(data.count ?? 0))
+      .catch(() => {});
+  }
+
+  async function recordTurnaway(undo: boolean) {
+    setTurnawayBusy(true);
+    try {
+      const res = await fetch("/api/turnaway", { method: undo ? "DELETE" : "POST" });
+      const data = await res.json();
+      if (res.ok) setTurnawayCount(data.count ?? 0);
+    } finally {
+      setTurnawayBusy(false);
+    }
+  }
 
   async function loadOrders() {
     setLoading(true);
@@ -304,6 +336,41 @@ export default function StaffDashboardPage() {
               受け取り時間から{RELEASE_GRACE_MINUTES}分を過ぎた未受取の予約は自動で解放され、店頭販売に戻ります。
               この画面を開いている間は自動で処理され、「今すぐ解放」で手動解放もできます。
             </p>
+
+            {/* 売り切れ遭遇カウンタ：研究の「飛び込み客の売り切れ遭遇率」の元データ */}
+            <div className="bg-white border border-[#e8e0d8] rounded-2xl p-4 mb-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[#1a1a1a] flex items-center gap-1.5">
+                    <UserX size={15} className="text-[#8B1A2C]" />
+                    売り切れでお断りした人数
+                  </p>
+                  <p className="text-xs text-[#6b5e52] mt-0.5">
+                    買いに来たが売り切れだったお客様がいたら押してください（本日分）
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-2xl font-black text-[#8B1A2C] w-10 text-right">
+                    {turnawayCount ?? "—"}
+                  </span>
+                  <button
+                    onClick={() => recordTurnaway(true)}
+                    disabled={turnawayBusy || !turnawayCount}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl border border-[#e8e0d8] text-[#6b5e52] hover:bg-[#f5f0eb] disabled:opacity-30 transition-colors"
+                    aria-label="1件取り消す"
+                  >
+                    <Undo2 size={15} />
+                  </button>
+                  <button
+                    onClick={() => recordTurnaway(false)}
+                    disabled={turnawayBusy}
+                    className="px-4 h-9 rounded-xl bg-[#8B1A2C] text-white text-sm font-bold hover:bg-[#A52235] disabled:opacity-50 transition-colors"
+                  >
+                    ＋1
+                  </button>
+                </div>
+              </div>
+            </div>
 
             {/* Filter tabs */}
             <div className="flex gap-2 mb-4 overflow-x-auto pb-1">

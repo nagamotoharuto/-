@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { toJstDateString } from "@/lib/utils";
 
 // Runs locally on this machine via Ollama (http://localhost:11434) — no per-call
 // cost and no dependency on OpenAI's API quota, at the cost of some accuracy
@@ -111,10 +112,17 @@ async function refresh(): Promise<ShelfCountResult> {
       count: Math.max(0, Math.min(99, Math.round(Number(counts[p.name]) || 0))),
     }));
 
-    // Per the chosen design: the AI count directly becomes the sellable stock.
+    // Per the chosen design: the AI count directly becomes the shelf stock shown
+    // to staff and customers (it is not what caps advance reservations).
     await Promise.all(
       items.map((item) => db.product.update({ where: { id: item.id }, data: { stock: item.count } }))
     );
+
+    // Keep the readings as a time series, and stamp the first moment each item
+    // runs out. Together these give the sell-out time the study compares
+    // before and after the reservation system is introduced.
+    const saleDate = toJstDateString();
+    await recordShelfHistory(saleDate, items);
 
     const result: ShelfCountResult = { items, updatedAt: now, error: null };
     cached = result;
@@ -132,6 +140,35 @@ async function refresh(): Promise<ShelfCountResult> {
     cached = result;
     cachedAt = Date.now();
     return result;
+  }
+}
+
+/**
+ * Persists one round of AI counts: every reading goes into the time series, and
+ * the first zero reading for a product stamps that sale date's sell-out time.
+ *
+ * Never throws — losing a research data point must not break the camera page.
+ */
+async function recordShelfHistory(saleDate: string, items: ShelfCountItem[]): Promise<void> {
+  try {
+    await db.shelfSnapshot.createMany({
+      data: items.map((item) => ({ productId: item.id, date: saleDate, count: item.count })),
+    });
+
+    const soldOut = items.filter((item) => item.count === 0);
+    if (soldOut.length === 0) return;
+
+    // Only stamp the first time it empties — a later restock must not move it.
+    await Promise.all(
+      soldOut.map((item) =>
+        db.dailyStock.updateMany({
+          where: { productId: item.id, date: saleDate, soldOutAt: null },
+          data: { soldOutAt: new Date() },
+        })
+      )
+    );
+  } catch (err) {
+    console.error("[shelfCount] failed to record history:", err);
   }
 }
 
