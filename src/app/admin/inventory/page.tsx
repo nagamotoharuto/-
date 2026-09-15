@@ -16,8 +16,19 @@ import {
   Plus,
   Minus,
   Clock,
+  CalendarDays,
+  Check,
 } from "lucide-react";
-import { formatPrice, isWithinSalesHours } from "@/lib/utils";
+import {
+  cn,
+  formatJstDateLabel,
+  formatPrice,
+  getNextBusinessDay,
+  getReservableQty,
+  isWithinSalesHours,
+  RESERVATION_RATIO,
+  toJstDateString,
+} from "@/lib/utils";
 import StaffHeader from "@/components/features/StaffHeader";
 
 interface Product {
@@ -29,6 +40,15 @@ interface Product {
   stock: number;
   isAvailable: boolean;
   description: string;
+}
+
+// 販売日ごとの発注数と、そこから決まる予約枠の状況
+interface DailyFigures {
+  isOffered: boolean;
+  plannedQty: number;
+  reservableQty: number;
+  reservedQty: number;
+  remainingQty: number;
 }
 
 interface EditState {
@@ -191,6 +211,14 @@ export default function InventoryPage() {
   const [stockUpdating, setStockUpdating] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [shelfCounts, setShelfCounts] = useState<Record<string, number>>({});
+  // The bread line-up changes daily, so quantities are kept per sale date.
+  // Staff set the next business day's figures the day before.
+  const [saleDates] = useState<string[]>(() => [toJstDateString(), getNextBusinessDay()]);
+  const [saleDate, setSaleDate] = useState(() => toJstDateString());
+  const [daily, setDaily] = useState<Record<string, DailyFigures>>({});
+  const [dailyLoading, setDailyLoading] = useState(true);
+  const [plannedSavedId, setPlannedSavedId] = useState<string | null>(null);
+  const [dailyReloadKey, setDailyReloadKey] = useState(0);
 
   useEffect(() => {
     if (typeof window !== "undefined" && !sessionStorage.getItem("staff_auth")) {
@@ -214,7 +242,78 @@ export default function InventoryPage() {
     return () => clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch(`/api/daily-stock?date=${encodeURIComponent(saleDate)}`)
+      .then((r) => r.json())
+      .then((data: { items?: (DailyFigures & { id: string })[] }) => {
+        if (cancelled) return;
+        const map: Record<string, DailyFigures> = {};
+        for (const item of data.items ?? []) {
+          map[item.id] = {
+            isOffered: item.isOffered,
+            plannedQty: item.plannedQty,
+            reservableQty: item.reservableQty,
+            reservedQty: item.reservedQty,
+            remainingQty: item.remainingQty,
+          };
+        }
+        setDaily(map);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setDailyLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [saleDate, dailyReloadKey]);
+
+  function selectSaleDate(next: string) {
+    if (next === saleDate) return;
+    setDailyLoading(true);
+    setSaleDate(next);
+  }
+
+  // 発注数はその販売日の予約枠(70%)の基準になる。0ならその日は販売しない。
+  async function savePlannedQty(productId: string, plannedQty: number) {
+    const safe = Math.max(0, plannedQty);
+    const reserved = daily[productId]?.reservedQty ?? 0;
+    const reservable = getReservableQty(safe);
+
+    setDaily((prev) => ({
+      ...prev,
+      [productId]: {
+        isOffered: safe > 0,
+        plannedQty: safe,
+        reservableQty: reservable,
+        reservedQty: reserved,
+        remainingQty: Math.max(0, reservable - reserved),
+      },
+    }));
+
+    const res = await fetch("/api/daily-stock", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId, date: saleDate, plannedQty: safe }),
+    });
+
+    if (!res.ok) {
+      setDailyReloadKey((k) => k + 1);
+      return;
+    }
+    setPlannedSavedId(productId);
+    setTimeout(
+      () => setPlannedSavedId((current) => (current === productId ? null : current)),
+      1500
+    );
+  }
+
   const businessOpen = isWithinSalesHours(now);
+  // 店頭の実在庫を触れるのは当日タブのときだけ
+  const isTodayTab = saleDate === toJstDateString(now);
 
   async function loadProducts() {
     setLoading(true);
@@ -349,7 +448,7 @@ export default function InventoryPage() {
               商品・在庫管理
             </h1>
             <p className="text-xs text-[#6b5e52] mt-1">
-              「編集」で商品名・金額・写真を変更、在庫は＋／－ボタンでリアルタイムに変更できます
+              商品名・金額・写真は全日共通です。発注数は販売日ごとに設定します
             </p>
           </div>
           <button
@@ -359,6 +458,35 @@ export default function InventoryPage() {
             <RefreshCw size={12} />
             更新
           </button>
+        </div>
+
+        {/* Sale date tabs — the bread line-up and quantities differ per day */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-4 mb-4">
+          <label className="flex items-center gap-1.5 text-xs font-bold text-[#6b5e52] mb-2">
+            <CalendarDays size={14} />
+            編集する販売日
+          </label>
+          <div className="flex gap-2 mb-2">
+            {saleDates.map((d) => (
+              <button
+                key={d}
+                onClick={() => selectSaleDate(d)}
+                className={cn(
+                  "flex-1 px-3 py-2.5 rounded-xl text-xs font-bold border transition-colors",
+                  saleDate === d
+                    ? "bg-[#8B1A2C] text-white border-[#8B1A2C]"
+                    : "bg-white text-[#6b5e52] border-[#e8e0d8] hover:border-[#8B1A2C]"
+                )}
+              >
+                {formatJstDateLabel(d)}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-[#6b5e52]">
+            発注数の{Math.round(RESERVATION_RATIO * 100)}%が予約枠になり、
+            残り{Math.round((1 - RESERVATION_RATIO) * 100)}%は飛び込みのお客様用に店頭へ確保されます。
+            <strong className="text-[#8B1A2C]">発注数が0の商品は、その日のメニューに表示されません。</strong>
+          </p>
         </div>
 
         {/* Business hours banner */}
@@ -371,8 +499,8 @@ export default function InventoryPage() {
         >
           <Clock size={14} />
           {businessOpen
-            ? "営業時間中（平日11:00〜15:00）：販売中の商品はお客様に表示されています"
-            : "営業時間外です：全商品が自動的に「停止中」として表示されます（土日祝は休業／次の営業日11:00に自動再開）"}
+            ? "店頭営業中（平日11:00〜15:00）：本日分のご予約を受付中です"
+            : "店頭は営業時間外です：次の営業日分のご予約を受付中です（予約受付は24時間稼働します）"}
         </div>
 
         {/* Add new product */}
@@ -513,7 +641,16 @@ export default function InventoryPage() {
                     const dirty = isDirty(product, edit);
                     const isOpen = expanded[product.id] ?? false;
                     const err = errors[product.id];
-                    const effectiveAvailable = edit.isAvailable && businessOpen;
+                    // 「販売中/停止中」は商品マスタ側の設定。店頭の営業時間とは切り離す
+                    // （予約受付は営業時間外も続くため）
+                    const effectiveAvailable = edit.isAvailable;
+                    const figures: DailyFigures = daily[product.id] ?? {
+                      isOffered: false,
+                      plannedQty: 0,
+                      reservableQty: 0,
+                      reservedQty: 0,
+                      remainingQty: 0,
+                    };
 
                     return (
                       <div
@@ -539,31 +676,81 @@ export default function InventoryPage() {
                               {formatPrice(Number(edit.price) || product.price)}
                             </p>
                             <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                              {/* 発注数: drives this sale date's reservation quota */}
                               <div className="flex items-center gap-1.5">
-                                <span className="text-xs text-[#6b5e52]">在庫</span>
-                                <button
-                                  onClick={() => adjustStock(product, -1)}
-                                  disabled={product.stock <= 0 || stockUpdating === product.id}
-                                  className="w-6 h-6 flex items-center justify-center rounded-full border border-[#e8e0d8] text-[#8B1A2C] hover:bg-[#f5f0eb] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  <Minus size={12} />
-                                </button>
-                                <span className="w-7 text-center text-sm font-black text-[#1a1a1a]">
-                                  {product.stock}
-                                </span>
-                                <button
-                                  onClick={() => adjustStock(product, 1)}
-                                  disabled={stockUpdating === product.id}
-                                  className="w-6 h-6 flex items-center justify-center rounded-full border border-[#e8e0d8] text-[#8B1A2C] hover:bg-[#f5f0eb] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  <Plus size={12} />
-                                </button>
+                                <span className="text-xs text-[#6b5e52]">発注数</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={figures.plannedQty}
+                                  disabled={dailyLoading}
+                                  onChange={(e) => {
+                                    const next = Math.max(0, parseInt(e.target.value, 10) || 0);
+                                    setDaily((prev) => ({
+                                      ...prev,
+                                      [product.id]: { ...figures, plannedQty: next },
+                                    }));
+                                  }}
+                                  onBlur={(e) =>
+                                    savePlannedQty(
+                                      product.id,
+                                      Math.max(0, parseInt(e.target.value, 10) || 0)
+                                    )
+                                  }
+                                  className="w-14 border border-[#e8e0d8] rounded-lg px-2 py-1 text-right text-sm font-black bg-[#fdf8f3] focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] disabled:opacity-50"
+                                />
+                                {plannedSavedId === product.id && (
+                                  <Check size={14} className="text-green-600" />
+                                )}
                               </div>
-                              {product.category === "bread" && shelfCounts[product.id] !== undefined && (
+
+                              {figures.plannedQty === 0 ? (
+                                <span className="text-[10px] font-bold text-gray-600 bg-gray-100 border border-gray-300 px-2 py-0.5 rounded-full">
+                                  この日は販売しない
+                                </span>
+                              ) : (
                                 <span className="text-[10px] text-[#6b5e52] bg-[#f5f0eb] px-2 py-0.5 rounded-full">
-                                  AIカウント {shelfCounts[product.id]}個
+                                  予約枠{figures.reservableQty}／予約済{figures.reservedQty}／残り
+                                  <strong
+                                    className={
+                                      figures.remainingQty === 0 ? "text-red-600" : "text-[#8B1A2C]"
+                                    }
+                                  >
+                                    {figures.remainingQty}
+                                  </strong>
                                 </span>
                               )}
+
+                              {/* 店頭の実在庫は「本日」だけの概念 */}
+                              {isTodayTab && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs text-[#6b5e52]">店頭</span>
+                                  <button
+                                    onClick={() => adjustStock(product, -1)}
+                                    disabled={product.stock <= 0 || stockUpdating === product.id}
+                                    className="w-6 h-6 flex items-center justify-center rounded-full border border-[#e8e0d8] text-[#8B1A2C] hover:bg-[#f5f0eb] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                  >
+                                    <Minus size={12} />
+                                  </button>
+                                  <span className="w-7 text-center text-sm font-black text-[#1a1a1a]">
+                                    {product.stock}
+                                  </span>
+                                  <button
+                                    onClick={() => adjustStock(product, 1)}
+                                    disabled={stockUpdating === product.id}
+                                    className="w-6 h-6 flex items-center justify-center rounded-full border border-[#e8e0d8] text-[#8B1A2C] hover:bg-[#f5f0eb] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                  >
+                                    <Plus size={12} />
+                                  </button>
+                                </div>
+                              )}
+                              {isTodayTab &&
+                                product.category === "bread" &&
+                                shelfCounts[product.id] !== undefined && (
+                                  <span className="text-[10px] text-[#6b5e52] bg-[#f5f0eb] px-2 py-0.5 rounded-full">
+                                    AIカウント {shelfCounts[product.id]}個
+                                  </span>
+                                )}
                               <button
                                 onClick={() =>
                                   updateEdit(product.id, "isAvailable", !edit.isAvailable)

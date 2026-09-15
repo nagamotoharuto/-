@@ -11,8 +11,7 @@ import { useBakeryStore } from "@/lib/store";
 import {
   formatJstDateLabel,
   formatPrice,
-  getReservableDates,
-  isWithinSalesHours,
+  getReservableDate,
   RESERVATION_RATIO,
 } from "@/lib/utils";
 
@@ -32,6 +31,7 @@ interface AvailabilityItem {
   imageUrl: string;
   description: string;
   isAvailable: boolean;
+  isOffered: boolean;
   plannedQty: number;
   reservableQty: number;
   reservedQty: number;
@@ -48,12 +48,11 @@ export default function MenuPage() {
   useEffect(() => {
     // The date drives which day's quota we are booking against, so it has to be
     // chosen (step 1) before the menu can show anything meaningful.
-    if (!user || !isWithinSalesHours() || !pickupDate || !pickupTime) {
-      router.push(user && isWithinSalesHours() ? "/time" : "/");
+    if (!user) {
+      router.push("/");
       return;
     }
-
-    if (!getReservableDates().includes(pickupDate)) {
+    if (!pickupDate || !pickupTime) {
       router.push("/time");
       return;
     }
@@ -67,10 +66,11 @@ export default function MenuPage() {
     loadAvailability().finally(() => setLoading(false));
 
     // Poll so another customer's booking (or a released no-show) shows up
-    // without a manual refresh, and kick the customer out if the store closes
+    // without a manual refresh, and send the customer back to step 1 once the
+    // sale date they picked stops taking reservations.
     const id = setInterval(() => {
-      if (!isWithinSalesHours()) {
-        router.push("/");
+      if (getReservableDate() !== pickupDate) {
+        router.push("/time");
         return;
       }
       loadAvailability();
@@ -78,10 +78,12 @@ export default function MenuPage() {
     return () => clearInterval(id);
   }, [user, pickupDate, pickupTime, router]);
 
-  if (!user || !isWithinSalesHours() || !pickupDate) return null;
+  if (!user || !pickupDate) return null;
 
+  // Products with nothing produced for this date are not on the day's menu
+  const offered = products.filter((p) => p.isOffered);
   const filtered =
-    category === "all" ? products : products.filter((p) => p.category === category);
+    category === "all" ? offered : offered.filter((p) => p.category === category);
 
   const totalItems = getTotalItems();
   const total = getTotal();
@@ -142,6 +144,12 @@ export default function MenuPage() {
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
+        )}
+
+        {!loading && filtered.length === 0 && (
+          <p className="text-center text-sm text-[#6b5e52] py-12">
+            この日に販売する商品はまだ登録されていません
+          </p>
         )}
       </div>
 

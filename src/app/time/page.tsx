@@ -8,53 +8,45 @@ import BottomNav from "@/components/features/BottomNav";
 import StepIndicator from "@/components/features/StepIndicator";
 import { useBakeryStore } from "@/lib/store";
 import {
-  cn,
   formatJstDateLabel,
   getAvailableTimeSlots,
-  getReservableDates,
+  getReservableDate,
   isWithinSalesHours,
   RELEASE_GRACE_MINUTES,
+  toJstDateString,
 } from "@/lib/utils";
 
 export default function TimePage() {
   const router = useRouter();
-  const { user, pickupDate, pickupTime, setPickupDate, setPickupTime } = useBakeryStore();
-  const [dates, setDates] = useState<string[]>([]);
-  const [selectedDate, setSelectedDate] = useState(pickupDate);
+  const { user, pickupTime, setPickupDate, setPickupTime } = useBakeryStore();
+  // Exactly one sale date takes reservations at a time: today's until the
+  // counter closes, then the next business day's.
+  const [selectedDate, setSelectedDate] = useState(() => getReservableDate());
   const [selectedTime, setSelectedTime] = useState(pickupTime);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!user) {
-      router.push("/");
-      return;
-    }
-    if (!isWithinSalesHours()) {
-      router.push("/");
-    }
+    if (!user) router.push("/");
   }, [user, router]);
 
-  // Computed on the client so the list stays right as the clock crosses a slot
+  // Roll over to the next sale date the moment the current one closes
   useEffect(() => {
-    function refreshDates() {
-      const next = getReservableDates();
-      setDates(next);
-      setSelectedDate((current) => (current && next.includes(current) ? current : next[0] ?? ""));
-    }
-    refreshDates();
-    const id = setInterval(refreshDates, 30_000);
+    const id = setInterval(() => {
+      setSelectedDate((current) => {
+        const next = getReservableDate();
+        if (next === current) return current;
+        setSelectedTime("");
+        return next;
+      });
+    }, 30_000);
     return () => clearInterval(id);
   }, []);
 
   if (!user) return null;
 
   const timeSlots = selectedDate ? getAvailableTimeSlots(selectedDate) : [];
-
-  function handleSelectDate(date: string) {
-    setSelectedDate(date);
-    setSelectedTime("");
-    setError("");
-  }
+  const isToday = selectedDate === toJstDateString();
+  const counterOpen = isWithinSalesHours();
 
   function handleNext() {
     if (!selectedDate) {
@@ -79,7 +71,9 @@ export default function TimePage() {
 
         <h2 className="text-lg font-bold mb-2 text-[#1a1a1a]">受け取り日時</h2>
         <p className="text-xs text-[#6b5e52] mb-6">
-          本日分に加えて、次の営業日分もご予約いただけます。商品と個数は受け取り日ごとに決まっています。
+          {isToday
+            ? "本日分のご予約を受付中です。本日の営業終了後、次の営業日分の受付を開始します。"
+            : "本日の営業は終了しました。次の営業日分のご予約を受付中です。"}
         </p>
 
         {/* Store info */}
@@ -94,32 +88,24 @@ export default function TimePage() {
           </div>
         </div>
 
-        {/* Date selector */}
+        {/* Sale date currently taking reservations — always exactly one */}
         <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-5 mb-4">
           <label className="flex items-center gap-1.5 text-xs font-bold text-[#6b5e52] mb-3">
             <CalendarDays size={14} />
             受け取り日
           </label>
-          {dates.length === 0 ? (
-            <p className="text-sm text-[#6b5e52]">現在ご予約いただける日がありません</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {dates.map((date) => (
-                <button
-                  key={date}
-                  onClick={() => handleSelectDate(date)}
-                  className={cn(
-                    "w-full rounded-xl px-4 py-3 text-sm font-bold text-left border-2 transition-colors",
-                    selectedDate === date
-                      ? "border-[#8B1A2C] bg-[#8B1A2C]/5 text-[#8B1A2C]"
-                      : "border-[#e8e0d8] bg-[#fdf8f3] text-[#1a1a1a] hover:border-[#8B1A2C]"
-                  )}
-                >
-                  {formatJstDateLabel(date)}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="rounded-xl px-4 py-3 border-2 border-[#8B1A2C] bg-[#8B1A2C]/5">
+            <p className="text-base font-black text-[#8B1A2C]">
+              {formatJstDateLabel(selectedDate)}
+            </p>
+            <p className="text-xs text-[#6b5e52] mt-0.5">
+              {isToday
+                ? counterOpen
+                  ? "ただいま店頭も営業中です"
+                  : "本日の受け取り分"
+                : "前営業日のうちにご予約いただけます"}
+            </p>
+          </div>
         </div>
 
         {/* Time selector */}

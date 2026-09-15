@@ -3,8 +3,7 @@ import { db } from "@/lib/db";
 import {
   BREAD_ORDER_LIMIT,
   getAvailableTimeSlots,
-  getReservableDates,
-  isWithinSalesHours,
+  getReservableDate,
   toJstDateString,
 } from "@/lib/utils";
 import { getAvailability, releaseOverdueReservations } from "@/lib/availability";
@@ -60,16 +59,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "お支払い方法を選択してください" }, { status: 400 });
     }
 
-    if (!isWithinSalesHours()) {
-      return NextResponse.json(
-        { error: "現在は営業時間外です（平日11:00〜15:00）。営業時間内にご注文ください" },
-        { status: 400 }
-      );
-    }
-
-    // Reservations open on the previous business day: today's sale and the next
-    // business day's are both bookable while the counter is open.
-    if (!getReservableDates().includes(pickupDate)) {
+    // Exactly one sale date takes reservations at a time: today's until the
+    // counter closes, then the next business day's. Reservations themselves are
+    // accepted around the clock, including after hours and over the weekend.
+    if (pickupDate !== getReservableDate()) {
       return NextResponse.json(
         { error: "その日付は現在ご予約いただけません。受け取り日を選び直してください" },
         { status: 400 }
@@ -103,7 +96,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: `「${product.name}」は現在販売停止中です` }, { status: 400 });
       }
       const slot = availabilityMap.get(item.productId);
-      if (!slot || slot.remainingQty < item.quantity) {
+      if (!slot?.isOffered) {
+        return NextResponse.json(
+          { error: `「${product.name}」はこの日の販売予定に入っていません` },
+          { status: 400 }
+        );
+      }
+      if (slot.remainingQty < item.quantity) {
         return NextResponse.json(
           {
             error: `「${product.name}」の予約枠が不足しています（予約可能残り${slot?.remainingQty ?? 0}個）`,
