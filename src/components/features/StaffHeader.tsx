@@ -2,13 +2,25 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChefHat, ClipboardList, Package, Truck, QrCode, Home, LogOut } from "lucide-react";
+import {
+  ChefHat,
+  ClipboardList,
+  Package,
+  Truck,
+  QrCode,
+  Home,
+  LogOut,
+  DoorClosed,
+  FlaskConical,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/admin/dashboard", label: "注文・売上", icon: ClipboardList },
   { href: "/admin/inventory", label: "商品・在庫", icon: Package },
   { href: "/admin/restock", label: "発注", icon: Truck },
+  { href: "/admin/closing", label: "閉店処理", icon: DoorClosed },
+  { href: "/admin/research", label: "調査データ", icon: FlaskConical },
   { href: "/admin/qrcode", label: "QRコード", icon: QrCode },
 ];
 
@@ -39,7 +51,7 @@ export default function StaffHeader() {
           </button>
         </div>
       </div>
-      <nav className="flex bg-[#7A1726] px-2">
+      <nav className="flex bg-[#7A1726] px-2 overflow-x-auto">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
           return (
@@ -47,7 +59,7 @@ export default function StaffHeader() {
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold border-b-2 transition-colors",
+                "flex items-center gap-1.5 px-3 py-2.5 text-sm font-bold border-b-2 transition-colors whitespace-nowrap",
                 active
                   ? "border-[#F0AA5A] text-white"
                   : "border-transparent text-[#F5C0C8] hover:text-white"
