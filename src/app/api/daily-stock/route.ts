@@ -93,6 +93,17 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // 売り切れ時刻は店頭在庫が0になった瞬間で記録する。数え間違いで戻したときは
+    // 消して、次に0になった時刻を採る。導入前後の売り切れ時刻の比較に使う。
+    let soldOutAt: Date | null | undefined;
+    if (nextShelfQty !== undefined) {
+      if (nextShelfQty === 0) {
+        if (!existing?.soldOutAt) soldOutAt = new Date();
+      } else if (existing?.soldOutAt) {
+        soldOutAt = null;
+      }
+    }
+
     const dailyStock = await db.dailyStock.upsert({
       where: { productId_date: { productId, date } },
       create: {
@@ -100,12 +111,14 @@ export async function PATCH(request: NextRequest) {
         date,
         plannedQty: effectivePlanned,
         shelfQty: nextShelfQty ?? null,
+        soldOutAt: soldOutAt ?? null,
         closingQty: closingQty ?? null,
         closedAt: closingQty === undefined || closingQty === null ? null : new Date(),
       },
       update: {
         ...(plannedQty !== undefined ? { plannedQty } : {}),
         ...(nextShelfQty !== undefined ? { shelfQty: nextShelfQty } : {}),
+        ...(soldOutAt !== undefined ? { soldOutAt } : {}),
         ...(closingQty !== undefined
           ? {
               closingQty,

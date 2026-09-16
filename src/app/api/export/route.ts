@@ -70,22 +70,6 @@ export async function GET(request: NextRequest) {
         }
       }
       filename = `orders_${from}_${to}.csv`;
-    } else if (type === "shelf") {
-      const snapshots = await db.shelfSnapshot.findMany({
-        where: { date: { gte: from, lte: to } },
-        orderBy: [{ date: "asc" }, { recordedAt: "asc" }],
-      });
-      const products = await db.product.findMany({ select: { id: true, name: true } });
-      const nameById = new Map(products.map((p) => [p.id, p.name]));
-
-      rows = [["販売日", "記録日時", "商品名", "陳列数(AIカウント)"]];
-      for (const snap of snapshots) {
-        rows.push([
-          snap.date, jstDateTime(snap.recordedAt),
-          nameById.get(snap.productId) ?? snap.productId, snap.count,
-        ]);
-      }
-      filename = `shelf_${from}_${to}.csv`;
     } else {
       // 既定：商品×販売日の指標（研究の主要な分析単位）
       const days = await getMetrics(from, to);

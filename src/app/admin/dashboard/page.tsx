@@ -175,19 +175,12 @@ export default function StaffDashboardPage() {
 
     const clockId = setInterval(() => setNow(Date.now()), 30_000);
 
-    // Poll the AI shelf count so a reading — and therefore a sell-out time — is
-    // recorded throughout the sale, not only while a customer has the camera
-    // page open. The staff screen is the one that stays open all service.
-    const shelfId = setInterval(() => {
-      fetch("/api/shelf-count").catch(() => {});
-    }, 60_000);
 
     return () => {
       cancelled = true;
       clearInterval(ordersId);
       clearInterval(sweepId);
       clearInterval(clockId);
-      clearInterval(shelfId);
     };
   }, [router, applyOrders, loadTurnaway]);
 

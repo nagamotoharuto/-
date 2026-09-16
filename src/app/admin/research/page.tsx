@@ -205,7 +205,6 @@ export default function ResearchPage() {
             {[
               { type: "metrics", label: "指標（商品×販売日）" },
               { type: "orders", label: "予約明細" },
-              { type: "shelf", label: "陳列数の推移" },
             ].map((item) => (
               <a
                 key={item.type}

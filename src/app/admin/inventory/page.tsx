@@ -223,9 +223,7 @@ export default function InventoryPage() {
   const [newProduct, setNewProduct] = useState({ name: "", category: "food", subCategory: "bread", price: "", imageUrl: "", stock: 0, description: "" });
   const [addError, setAddError] = useState("");
   const [addSaving, setAddSaving] = useState(false);
-  const [stockUpdating, setStockUpdating] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
-  const [shelfCounts, setShelfCounts] = useState<Record<string, number>>({});
   // The bread line-up changes daily, so quantities are kept per sale date.
   // Staff set the next business day's figures the day before.
   const [saleDates] = useState<string[]>(() => [toJstDateString(), getNextBusinessDay()]);
@@ -245,14 +243,6 @@ export default function InventoryPage() {
     }
     loadProducts();
 
-    fetch("/api/shelf-count")
-      .then((r) => r.json())
-      .then((data: { items?: { id: string; count: number }[] }) => {
-        const map: Record<string, number> = {};
-        for (const item of data.items ?? []) map[item.id] = item.count;
-        setShelfCounts(map);
-      })
-      .catch(() => {});
   }, [router]);
 
   useEffect(() => {
@@ -419,24 +409,6 @@ export default function InventoryPage() {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   }
 
-  async function adjustStock(product: Product, delta: number) {
-    const nextStock = Math.max(0, product.stock + delta);
-    if (nextStock === product.stock || stockUpdating) return;
-
-    setStockUpdating(product.id);
-    setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, stock: nextStock } : p)));
-
-    const res = await fetch("/api/inventory", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId: product.id, stock: nextStock }),
-    });
-
-    if (!res.ok) {
-      setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, stock: product.stock } : p)));
-    }
-    setStockUpdating(null);
-  }
 
   function cancelEdit(product: Product) {
     setEdits((prev) => { const n = { ...prev }; delete n[product.id]; return n; });
@@ -631,7 +603,7 @@ export default function InventoryPage() {
                 </select>
               </div>
 
-              {/* 図鑑・購入上限・スタンプ特典・AIカウントはパンだけが対象なので内訳を持つ */}
+              {/* 図鑑・購入上限・スタンプ特典はパンだけが対象なので内訳を持つ */}
               {newProduct.category === "food" && (
                 <div>
                   <label className="block text-xs font-bold text-[#6b5e52] mb-1">内訳</label>
@@ -645,7 +617,7 @@ export default function InventoryPage() {
                     ))}
                   </select>
                   <p className="text-[10px] text-[#6b5e52] mt-1">
-                    パンだけが図鑑・購入上限・スタンプ特典・AIカウントの対象になります
+                    パンだけが図鑑・購入上限・スタンプ特典の対象になります
                   </p>
                 </div>
               )}
@@ -688,17 +660,9 @@ export default function InventoryPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#6b5e52] mb-1">初期在庫数</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={999}
-                  value={newProduct.stock}
-                  onChange={(e) => setNewProduct(p => ({ ...p, stock: Math.max(0, parseInt(e.target.value) || 0) }))}
-                  className="w-full border border-[#e8e0d8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] bg-white"
-                />
-              </div>
+              <p className="text-xs text-[#6b5e52]">
+                個数は登録後に、販売日ごとの発注数として入力します。
+              </p>
 
               <div className="flex gap-2">
                 <button
@@ -885,12 +849,6 @@ export default function InventoryPage() {
                                       発注数に戻す
                                     </button>
                                   )}
-                                  {product.subCategory === "bread" &&
-                                    shelfCounts[product.id] !== undefined && (
-                                      <span className="text-[10px] text-[#6b5e52] bg-[#f5f0eb] px-2 py-0.5 rounded-full">
-                                        AIカウント {shelfCounts[product.id]}個
-                                      </span>
-                                    )}
                                 </div>
                               )}
 
