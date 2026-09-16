@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import sharp from "sharp";
+import { db } from "@/lib/db";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+// 取り込み時に縮小するので、元ファイルは大きめでも受け付ける
+const MAX_UPLOAD_SIZE = 12 * 1024 * 1024;
+// 商品カードに出る大きさに対して十分な幅。これ以上は情報量にならない。
+const MAX_WIDTH = 1200;
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,24 +24,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: "ファイルサイズは5MB以下にしてください" }, { status: 400 });
+    if (file.size > MAX_UPLOAD_SIZE) {
+      return NextResponse.json({ error: "ファイルサイズは12MB以下にしてください" }, { status: 400 });
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const original = Buffer.from(await file.arrayBuffer());
 
-    // Sanitize filename and add timestamp to avoid collisions
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).slice(2, 7);
-    const filename = `product_${timestamp}_${random}.${ext}`;
+    // スマホで撮った写真は向きがExifにしか入っていないことがあるので rotate() で焼き込む。
+    // WebPに揃えると透過も保てて、DBに置いても軽い。
+    let data: Buffer;
+    try {
+      data = await sharp(original)
+        .rotate()
+        .resize({ width: MAX_WIDTH, withoutEnlargement: true })
+        .webp({ quality: 82 })
+        .toBuffer();
+    } catch {
+      return NextResponse.json(
+        { error: "画像を読み込めませんでした。別のファイルでお試しください" },
+        { status: 400 }
+      );
+    }
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    await mkdir(uploadDir, { recursive: true });
-    await writeFile(path.join(uploadDir, filename), buffer);
+    const image = await db.productImage.create({
+      data: {
+        data: new Uint8Array(data),
+        mimeType: "image/webp",
+        byteSize: data.byteLength,
+      },
+      select: { id: true },
+    });
 
-    return NextResponse.json({ url: `/uploads/${filename}` });
+    return NextResponse.json({ url: `/api/images/${image.id}` });
   } catch (error) {
     console.error("POST /api/upload error:", error);
     return NextResponse.json({ error: "アップロードに失敗しました" }, { status: 500 });

@@ -117,6 +117,17 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id])
 }
 
+// 商品写真の実体。Next.jsの本番ビルドは public/ にビルド時からあるファイルしか
+// 配信しないうえ、Railwayのコンテナはファイルが永続しない。どちらの制約も受けない
+// ようDBに置き、/api/images/[id] から配信する。
+model ProductImage {
+  id        String   @id @default(cuid())
+  data      Bytes
+  mimeType  String
+  byteSize  Int
+  createdAt DateTime @default(now())
+}
+
 model StampCard {
   id                String   @id @default(cuid())
   nickname          String   @unique
