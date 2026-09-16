@@ -1,5 +1,10 @@
 import { db } from "@/lib/db";
-import { getReleaseDeadline, getReservableQty } from "@/lib/utils";
+import {
+  compareProducts,
+  getReleaseDeadline,
+  getReservableQty,
+  getWalkInSharePercent,
+} from "@/lib/utils";
 
 // Statuses that still hold a reservation slot. "cancelled" and "released"
 // hand the item back to the shelf, so they free their slot again.
@@ -24,6 +29,8 @@ export interface ProductAvailability {
   plannedQty: number;
   /** 予約枠: the bookable share of plannedQty (the rest is held for walk-ups) */
   reservableQty: number;
+  /** 店頭に確保される割合（%）。お菓子は0で、全量が予約枠になる。 */
+  walkInSharePercent: number;
   /** already booked by other customers for this date */
   reservedQty: number;
   /** 予約可能残数 */
@@ -98,7 +105,7 @@ export async function getReservedQuantities(date: string): Promise<Map<string, n
  */
 export async function getAvailability(date: string): Promise<ProductAvailability[]> {
   const [products, dailyStocks, reserved] = await Promise.all([
-    db.product.findMany({ orderBy: { createdAt: "asc" } }),
+    db.product.findMany(),
     db.dailyStock.findMany({ where: { date } }),
     getReservedQuantities(date),
   ]);
@@ -106,10 +113,10 @@ export async function getAvailability(date: string): Promise<ProductAvailability
   const stockByProduct = new Map(dailyStocks.map((d) => [d.productId, d]));
   const unfulfilled = await getUnfulfilledQuantities(date);
 
-  return products.map((p) => {
+  return [...products].sort(compareProducts).map((p) => {
     const daily = stockByProduct.get(p.id);
     const plannedQty = daily?.plannedQty ?? p.stock;
-    const reservableQty = getReservableQty(plannedQty);
+    const reservableQty = getReservableQty(plannedQty, p);
     const reservedQty = reserved.get(p.id) ?? 0;
     return {
       id: p.id,
@@ -125,6 +132,7 @@ export async function getAvailability(date: string): Promise<ProductAvailability
       isOffered: plannedQty > 0,
       plannedQty,
       reservableQty,
+      walkInSharePercent: getWalkInSharePercent(p),
       reservedQty,
       remainingQty: Math.max(0, reservableQty - reservedQty),
       shelfQty: daily?.shelfQty ?? null,

@@ -112,8 +112,9 @@ export default function MenuPage() {
         </button>
 
         <p className="text-xs text-[#6b5e52] mb-4">
-          表示しているのは予約できる残り数です。飛び込みのお客様用に、各商品の
-          {Math.round((1 - RESERVATION_RATIO) * 100)}%は店頭に確保しています。
+          表示しているのは予約できる残り数です。パンとドリンクは飛び込みのお客様用に
+          {Math.round((1 - RESERVATION_RATIO) * 100)}%を店頭へ確保しているため、
+          用意している数より少なく表示されます。
         </p>
 
         {/* Category tabs */}

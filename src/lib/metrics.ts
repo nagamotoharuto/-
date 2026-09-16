@@ -116,7 +116,7 @@ export async function getMetrics(from: string, to: string): Promise<DayMetrics[]
     const releasedMap = qtyByProduct(released);
 
     const items: ProductDayMetrics[] = dayStocks.map((stock) => {
-      const reservableQty = getReservableQty(stock.plannedQty);
+      const reservableQty = getReservableQty(stock.plannedQty, stock.product);
       const reservedQty = reservedMap.get(stock.productId) ?? 0;
       const handedOverQty = handedMap.get(stock.productId) ?? 0;
       const releasedQty = releasedMap.get(stock.productId) ?? 0;

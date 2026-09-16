@@ -27,7 +27,10 @@ import {
   formatJstDateLabel,
   formatPrice,
   getNextBusinessDay,
+  compareProducts,
   getReservableQty,
+  getReservationRatio,
+  getWalkInSharePercent,
   isWithinSalesHours,
   RESERVATION_RATIO,
   SUB_CATEGORIES,
@@ -300,7 +303,8 @@ export default function InventoryPage() {
    */
   function previewPlannedQty(productId: string, plannedQty: number) {
     const safe = Math.max(0, plannedQty);
-    const reservable = getReservableQty(safe);
+    const product = products.find((p) => p.id === productId);
+    const reservable = getReservableQty(safe, product);
 
     setDaily((prev) => {
       const current = prev[productId];
@@ -564,6 +568,8 @@ export default function InventoryPage() {
           <p className="text-xs text-[#6b5e52]">
             発注数の{Math.round(RESERVATION_RATIO * 100)}%が予約枠になり、
             残り{Math.round((1 - RESERVATION_RATIO) * 100)}%は飛び込みのお客様用に店頭へ確保されます。
+            <strong className="text-[#8B1A2C]">お菓子だけは全量が予約枠</strong>
+            になります（種類が多く1種あたりの個数が少ないため）。
             <strong className="text-[#8B1A2C]">発注数が0の商品は、その日のメニューに表示されません。</strong>
           </p>
         </div>
@@ -725,7 +731,8 @@ export default function InventoryPage() {
           </div>
         ) : (
           categories.map((cat) => {
-            const catProducts = products.filter((p) => p.category === cat);
+            // パンを上、お菓子を下にして、それぞれ名前順
+            const catProducts = products.filter((p) => p.category === cat).sort(compareProducts);
             if (catProducts.length === 0) return null;
             return (
               <div key={cat} className="mb-6">
@@ -825,6 +832,13 @@ export default function InventoryPage() {
                                     <strong className="text-[#8B1A2C] mx-0.5">
                                       {figures.reservableQty}
                                     </strong>
+                                    <span className="text-[#8d8073]">
+                                      （
+                                      {getWalkInSharePercent(product) === 0
+                                        ? "全量"
+                                        : `${Math.round(getReservationRatio(product) * 100)}%`}
+                                      ）
+                                    </span>
                                     ／予約済{figures.reservedQty}／残り
                                     <strong
                                       className={

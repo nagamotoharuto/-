@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { compareProducts } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,10 +53,9 @@ export async function GET(request: NextRequest) {
         ...(category ? { category } : {}),
         ...(subCategory ? { subCategory } : {}),
       },
-      orderBy: { createdAt: "asc" },
     });
 
-    return NextResponse.json(products);
+    return NextResponse.json([...products].sort(compareProducts));
   } catch (error) {
     console.error("GET /api/products error:", error);
     return NextResponse.json(
