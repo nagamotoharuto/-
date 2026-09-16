@@ -18,6 +18,7 @@ import {
   Clock,
   CalendarDays,
   Check,
+  ImageOff,
 } from "lucide-react";
 import {
   CATEGORIES,
@@ -101,6 +102,7 @@ function ImageUploadZone({
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [previewBroken, setPreviewBroken] = useState(false);
 
   async function handleFile(file: File) {
     setUploadError("");
@@ -113,6 +115,7 @@ function ImageUploadZone({
       if (!res.ok) {
         setUploadError(data.error ?? "アップロード失敗");
       } else {
+        setPreviewBroken(false);
         onUploaded(data.url);
       }
     } catch {
@@ -140,13 +143,21 @@ function ImageUploadZone({
       {/* Current image preview */}
       {currentUrl && (
         <div className="relative w-full h-36 rounded-xl overflow-hidden bg-[#f5f0eb] mb-2">
-          <Image
-            src={currentUrl}
-            alt="現在の写真"
-            fill
-            className="object-cover"
-            sizes="100vw"
-          />
+          {previewBroken ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-[#c8bdb5]">
+              <ImageOff size={22} />
+              <span className="text-xs">写真を読み込めません。登録し直してください</span>
+            </div>
+          ) : (
+            <Image
+              src={currentUrl}
+              alt="現在の写真"
+              fill
+              className="object-cover"
+              sizes="100vw"
+              onError={() => setPreviewBroken(true)}
+            />
+          )}
           <div className="absolute bottom-0 left-0 right-0 bg-black/40 text-white text-xs py-1 text-center">
             現在の写真
           </div>
@@ -220,6 +231,8 @@ export default function InventoryPage() {
   const [dailyLoading, setDailyLoading] = useState(true);
   const [plannedSavedId, setPlannedSavedId] = useState<string | null>(null);
   const [shelfBusy, setShelfBusy] = useState<string | null>(null);
+  // 読み込めなかったサムネイルは壊れたアイコンではなく枠を出す
+  const [brokenThumbs, setBrokenThumbs] = useState<Record<string, boolean>>({});
   const [dailyReloadKey, setDailyReloadKey] = useState(0);
 
   useEffect(() => {
@@ -752,13 +765,22 @@ export default function InventoryPage() {
                         {/* Collapsed row */}
                         <div className="p-4 flex items-center gap-3">
                           <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-[#f5f0eb]">
-                            <Image
-                              src={edit.imageUrl}
-                              alt={product.name}
-                              fill
-                              className="object-cover"
-                              sizes="64px"
-                            />
+                            {edit.imageUrl && !brokenThumbs[product.id] ? (
+                              <Image
+                                src={edit.imageUrl}
+                                alt={product.name}
+                                fill
+                                className="object-cover"
+                                sizes="64px"
+                                onError={() =>
+                                  setBrokenThumbs((prev) => ({ ...prev, [product.id]: true }))
+                                }
+                              />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center text-[#c8bdb5]">
+                                <ImageOff size={18} />
+                              </div>
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-[#1a1a1a] truncate">

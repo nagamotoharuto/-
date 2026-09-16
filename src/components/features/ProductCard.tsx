@@ -1,7 +1,8 @@
 ﻿"use client";
 
+import { useState } from "react";
 import Image from "next/image";
-import { Plus, Minus } from "lucide-react";
+import { Plus, Minus, ImageOff } from "lucide-react";
 import { useBakeryStore } from "@/lib/store";
 import { formatPrice, BREAD_ORDER_LIMIT, isBread } from "@/lib/utils";
 
@@ -20,6 +21,8 @@ interface Product {
 
 export default function ProductCard({ product }: { product: Product }) {
   const { cart, addToCart, updateQuantity } = useBakeryStore();
+  // 写真が未登録・読み込み失敗でも、壊れた画像アイコンではなく枠を出す
+  const [imageBroken, setImageBroken] = useState(false);
   const cartItem = cart.find((c) => c.productId === product.id);
   const qty = cartItem?.quantity ?? 0;
   const soldOut = !product.isAvailable || product.remainingQty === 0;
@@ -54,16 +57,21 @@ export default function ProductCard({ product }: { product: Product }) {
       }`}
     >
       <div className="relative aspect-[4/3] bg-[#f5f0eb]">
-        <Image
-          src={product.imageUrl}
-          alt={product.name}
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 50vw, 33vw"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = "/placeholder-food.jpg";
-          }}
-        />
+        {product.imageUrl && !imageBroken ? (
+          <Image
+            src={product.imageUrl}
+            alt={product.name}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 50vw, 33vw"
+            onError={() => setImageBroken(true)}
+          />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-[#c8bdb5]">
+            <ImageOff size={24} />
+            <span className="text-[10px]">写真がありません</span>
+          </div>
+        )}
         {soldOut && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <span className="bg-white text-[#1a1a1a] text-xs font-bold px-3 py-1 rounded-full">
