@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Truck, RefreshCw, Printer, AlertTriangle } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
+import { CATEGORIES, CATEGORY_LABELS, formatPrice } from "@/lib/utils";
 import StaffHeader from "@/components/features/StaffHeader";
 
 interface Product {
@@ -37,13 +37,7 @@ interface RestockRow {
   stock: number;
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  bread: "パン",
-  drink: "ドリンク",
-  goods: "グッズ",
-};
-
-const CATEGORY_ORDER = ["bread", "drink", "goods"];
+const CATEGORY_ORDER = CATEGORIES;
 
 function isToday(dateStr: string) {
   const d = new Date(dateStr);

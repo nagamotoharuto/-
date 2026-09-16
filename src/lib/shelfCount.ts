@@ -90,7 +90,8 @@ async function refresh(): Promise<ShelfCountResult> {
 
   try {
     const breadProducts = await db.product.findMany({
-      where: { category: "bread" },
+      // 数えるのはパンだけ。お菓子も food だが棚のカウント対象には含めない。
+      where: { subCategory: "bread" },
       select: { id: true, name: true, imageUrl: true },
       orderBy: { createdAt: "asc" },
     });

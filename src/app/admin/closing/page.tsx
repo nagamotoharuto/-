@@ -10,6 +10,8 @@ import {
   getPreviousBusinessDay,
   isWithinSalesHours,
   toJstDateString,
+  CATEGORIES,
+  CATEGORY_LABELS,
 } from "@/lib/utils";
 
 interface ClosingRow {
@@ -22,13 +24,7 @@ interface ClosingRow {
   closingQty: number | null;
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  bread: "パン",
-  drink: "ドリンク",
-  goods: "グッズ",
-};
-
-const CATEGORY_ORDER = ["bread", "drink", "goods"];
+const CATEGORY_ORDER = CATEGORIES;
 
 /**
  * 閉店処理：その日の売れ残りを商品ごとに入力する。

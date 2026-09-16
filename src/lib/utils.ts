@@ -217,3 +217,31 @@ export const PAYMENT_LABELS: Record<string, string> = {
 export const STAMPS_PER_CARD = 10;
 
 export const BREAD_ORDER_LIMIT = 3;
+
+// ---- 売り場の区分 ----
+
+// 売り場は food / drink / goods の3つ。パンとお菓子はどちらも food で、
+// 内訳は subCategory ("bread" | "sweets") で区別する。
+export const CATEGORIES = ["food", "drink", "goods"] as const;
+export type Category = (typeof CATEGORIES)[number];
+
+export const CATEGORY_LABELS: Record<string, string> = {
+  food: "パン・お菓子",
+  drink: "ドリンク",
+  goods: "大学グッズ",
+  // 区分を統合する前の予約データが残っていても表示できるようにしておく
+  bread: "パン",
+};
+
+export const SUB_CATEGORIES = ["bread", "sweets"] as const;
+
+export const SUB_CATEGORY_LABELS: Record<string, string> = {
+  bread: "パン",
+  sweets: "お菓子",
+};
+
+// パンかどうか。図鑑・購入上限・スタンプ特典・AIカメラのカウントはパンだけが対象。
+// 区分統合前のデータは category 自体が "bread" だったので、そちらも拾う。
+export function isBread(item: { category: string; subCategory?: string | null }): boolean {
+  return item.subCategory === "bread" || item.category === "bread";
+}

@@ -8,14 +8,14 @@ import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
 import StepIndicator from "@/components/features/StepIndicator";
 import { useBakeryStore } from "@/lib/store";
-import { formatJstDateLabel, formatPrice, BREAD_ORDER_LIMIT } from "@/lib/utils";
+import { formatJstDateLabel, formatPrice, BREAD_ORDER_LIMIT, isBread } from "@/lib/utils";
 
 export default function CartPage() {
   const router = useRouter();
   const { user, cart, pickupDate, pickupTime, updateQuantity, removeFromCart, getTotal, getTotalItems } =
     useBakeryStore();
   const breadTotal = cart
-    .filter((c) => c.category === "bread")
+    .filter((c) => isBread(c))
     .reduce((sum, c) => sum + c.quantity, 0);
 
   useEffect(() => {
@@ -105,7 +105,7 @@ export default function CartPage() {
                   <span className="text-sm font-bold w-4 text-center">{item.quantity}</span>
                   <button
                     onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                    disabled={item.category === "bread" && breadTotal >= BREAD_ORDER_LIMIT}
+                    disabled={isBread(item) && breadTotal >= BREAD_ORDER_LIMIT}
                     className="w-7 h-7 bg-[#8B1A2C] text-white rounded-full flex items-center justify-center hover:bg-[#A52235] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Plus size={12} />

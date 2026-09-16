@@ -13,6 +13,7 @@ export interface ProductAvailability {
   id: string;
   name: string;
   category: string;
+  subCategory: string;
   price: number;
   imageUrl: string;
   description: string;
@@ -27,6 +28,10 @@ export interface ProductAvailability {
   reservedQty: number;
   /** 予約可能残数 */
   remainingQty: number;
+  /** 店頭在庫（販売員が管理。飛び込み販売のたびに減らす） */
+  shelfQty: number | null;
+  /** まだ受け渡していない予約数。店頭在庫がこれを下回ると予約分を売ってしまう */
+  unfulfilledQty: number;
 }
 
 /**
@@ -54,6 +59,20 @@ export async function releaseOverdueReservations(now: Date = new Date()): Promis
     data: { status: "released", releasedAt: now },
   });
   return result.count;
+}
+
+/** 受け渡し前の予約数。店頭で売ってしまうと足りなくなる分。 */
+export async function getUnfulfilledQuantities(date: string): Promise<Map<string, number>> {
+  const items = await db.orderItem.findMany({
+    where: { order: { pickupDate: date, status: { in: ["pending", "ready"] } } },
+    select: { productId: true, quantity: true },
+  });
+
+  const pending = new Map<string, number>();
+  for (const item of items) {
+    pending.set(item.productId, (pending.get(item.productId) ?? 0) + item.quantity);
+  }
+  return pending;
 }
 
 /** How many of each product are already reserved for a sale date, by product id. */
@@ -84,16 +103,19 @@ export async function getAvailability(date: string): Promise<ProductAvailability
     getReservedQuantities(date),
   ]);
 
-  const plannedByProduct = new Map(dailyStocks.map((d) => [d.productId, d.plannedQty]));
+  const stockByProduct = new Map(dailyStocks.map((d) => [d.productId, d]));
+  const unfulfilled = await getUnfulfilledQuantities(date);
 
   return products.map((p) => {
-    const plannedQty = plannedByProduct.get(p.id) ?? p.stock;
+    const daily = stockByProduct.get(p.id);
+    const plannedQty = daily?.plannedQty ?? p.stock;
     const reservableQty = getReservableQty(plannedQty);
     const reservedQty = reserved.get(p.id) ?? 0;
     return {
       id: p.id,
       name: p.name,
       category: p.category,
+      subCategory: p.subCategory,
       price: p.price,
       imageUrl: p.imageUrl,
       description: p.description,
@@ -105,6 +127,8 @@ export async function getAvailability(date: string): Promise<ProductAvailability
       reservableQty,
       reservedQty,
       remainingQty: Math.max(0, reservableQty - reservedQty),
+      shelfQty: daily?.shelfQty ?? null,
+      unfulfilledQty: unfulfilled.get(p.id) ?? 0,
     };
   });
 }

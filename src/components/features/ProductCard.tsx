@@ -3,12 +3,13 @@
 import Image from "next/image";
 import { Plus, Minus } from "lucide-react";
 import { useBakeryStore } from "@/lib/store";
-import { formatPrice, BREAD_ORDER_LIMIT } from "@/lib/utils";
+import { formatPrice, BREAD_ORDER_LIMIT, isBread } from "@/lib/utils";
 
 interface Product {
   id: string;
   name: string;
   category: string;
+  subCategory: string;
   price: number;
   imageUrl: string;
   description: string;
@@ -22,11 +23,11 @@ export default function ProductCard({ product }: { product: Product }) {
   const cartItem = cart.find((c) => c.productId === product.id);
   const qty = cartItem?.quantity ?? 0;
   const soldOut = !product.isAvailable || product.remainingQty === 0;
-  const isBread = product.category === "bread";
+  const productIsBread = isBread(product);
   const breadTotalInCart = cart
-    .filter((c) => c.category === "bread")
+    .filter((c) => isBread(c))
     .reduce((sum, c) => sum + c.quantity, 0);
-  const breadLimitReached = isBread && breadTotalInCart >= BREAD_ORDER_LIMIT;
+  const breadLimitReached = productIsBread && breadTotalInCart >= BREAD_ORDER_LIMIT;
 
   function handleAdd() {
     if (soldOut) return;
@@ -38,6 +39,7 @@ export default function ProductCard({ product }: { product: Product }) {
       price: product.price,
       imageUrl: product.imageUrl,
       category: product.category,
+      subCategory: product.subCategory,
     });
   }
 
@@ -73,7 +75,7 @@ export default function ProductCard({ product }: { product: Product }) {
           予約可能 残り{product.remainingQty}
         </div>
       </div>
-      {isBread && (
+      {productIsBread && (
         <p className="px-3 pt-2 text-[10px] text-[#6b5e52]">
           パンは1人{BREAD_ORDER_LIMIT}個まで
         </p>

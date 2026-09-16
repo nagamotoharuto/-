@@ -7,7 +7,13 @@ import { Star, Gift, Flame, ShoppingBag, Calendar, ChevronDown, ChevronUp } from
 import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
 import { useBakeryStore } from "@/lib/store";
-import { STAMPS_PER_CARD, USER_TYPE_LABELS, formatJstDateLabel, formatPrice } from "@/lib/utils";
+import {
+  STAMPS_PER_CARD,
+  USER_TYPE_LABELS,
+  formatJstDateLabel,
+  formatPrice,
+  isBread,
+} from "@/lib/utils";
 
 interface StampCard {
   stamps: number;
@@ -23,6 +29,7 @@ interface OrderItem {
   name: string;
   imageUrl: string;
   category: string;
+  subCategory: string;
 }
 
 interface Order {
@@ -88,7 +95,7 @@ export default function MyPage() {
       .then((data) => setOrders(Array.isArray(data) ? data : []))
       .finally(() => setOrdersLoading(false));
 
-    fetch(`/api/products?category=bread`)
+    fetch(`/api/products?subCategory=bread`)
       .then((r) => r.json())
       .then((data) => setBreadProducts(Array.isArray(data) ? data : []))
       .finally(() => setProductsLoading(false));
@@ -111,7 +118,7 @@ export default function MyPage() {
   for (const order of orders) {
     if (UNFULFILLED_STATUSES.includes(order.status)) continue;
     for (const item of order.items) {
-      if (item.category === "bread") {
+      if (isBread(item)) {
         breadMap.set(item.name, (breadMap.get(item.name) ?? 0) + item.quantity);
       }
     }
@@ -132,7 +139,7 @@ export default function MyPage() {
   for (const order of orders) {
     if (UNFULFILLED_STATUSES.includes(order.status)) continue;
     for (const item of order.items) {
-      if (item.category === "bread" && !dexMap.has(item.name)) {
+      if (isBread(item) && !dexMap.has(item.name)) {
         dexMap.set(item.name, { name: item.name, imageUrl: item.imageUrl });
       }
     }

@@ -27,22 +27,26 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { productId, date, plannedQty, closingQty } = body as {
+    const { productId, date, plannedQty, closingQty, shelfQty, shelfDelta } = body as {
       productId: string;
       date: string;
       plannedQty?: number;
       closingQty?: number | null;
+      shelfQty?: number;
+      shelfDelta?: number;
     };
 
     if (!productId || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return NextResponse.json({ error: "productId と date が必要です" }, { status: 400 });
     }
 
-    if (plannedQty === undefined && closingQty === undefined) {
-      return NextResponse.json(
-        { error: "plannedQty か closingQty のどちらかが必要です" },
-        { status: 400 }
-      );
+    if (
+      plannedQty === undefined &&
+      closingQty === undefined &&
+      shelfQty === undefined &&
+      shelfDelta === undefined
+    ) {
+      return NextResponse.json({ error: "更新する項目がありません" }, { status: 400 });
     }
 
     if (
@@ -70,6 +74,18 @@ export async function PATCH(request: NextRequest) {
     });
     const effectivePlanned = plannedQty ?? existing?.plannedQty ?? 0;
 
+    // 店頭在庫は発注数と同じ数から始まる。まだ決まっていないときだけ発注数に合わせ、
+    // すでに飛び込み販売で減っている場合は発注数を直しても巻き戻さない
+    // （戻したいときは shelfQty を明示的に送る）。
+    let nextShelfQty: number | undefined;
+    if (shelfQty !== undefined) {
+      nextShelfQty = Math.max(0, shelfQty);
+    } else if (shelfDelta !== undefined) {
+      nextShelfQty = Math.max(0, (existing?.shelfQty ?? effectivePlanned) + shelfDelta);
+    } else if (plannedQty !== undefined && existing?.shelfQty == null) {
+      nextShelfQty = plannedQty;
+    }
+
     if (closingQty !== undefined && closingQty !== null && closingQty > effectivePlanned) {
       return NextResponse.json(
         { error: `残数が発注数(${effectivePlanned}個)を超えています` },
@@ -83,11 +99,13 @@ export async function PATCH(request: NextRequest) {
         productId,
         date,
         plannedQty: effectivePlanned,
+        shelfQty: nextShelfQty ?? null,
         closingQty: closingQty ?? null,
         closedAt: closingQty === undefined || closingQty === null ? null : new Date(),
       },
       update: {
         ...(plannedQty !== undefined ? { plannedQty } : {}),
+        ...(nextShelfQty !== undefined ? { shelfQty: nextShelfQty } : {}),
         ...(closingQty !== undefined
           ? {
               closingQty,

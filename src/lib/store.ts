@@ -10,6 +10,7 @@ export interface CartItem {
   quantity: number;
   imageUrl: string;
   category: string;
+  subCategory: string;
 }
 
 export interface UserProfile {
