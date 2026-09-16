@@ -15,6 +15,7 @@ import {
   Undo2,
 } from "lucide-react";
 import {
+  CATEGORY_LABELS,
   formatJstDateLabel,
   formatPrice,
   getReleaseDeadline,
@@ -56,16 +57,12 @@ const STATUS_COLORS: Record<string, string> = {
   released: "bg-orange-100 text-orange-800",
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  bread: "パン",
-  drink: "ドリンク",
-  goods: "グッズ",
-};
-
 const CATEGORY_COLORS: Record<string, string> = {
-  bread: "bg-amber-100 text-amber-800",
+  food: "bg-amber-100 text-amber-800",
   drink: "bg-blue-100 text-blue-800",
   goods: "bg-purple-100 text-purple-800",
+  // 区分統合前の予約データ用
+  bread: "bg-amber-100 text-amber-800",
 };
 
 export default function StaffDashboardPage() {
@@ -248,14 +245,14 @@ export default function StaffDashboardPage() {
   const itemSales = Array.from(itemSalesMap.values()).sort((a, b) => b.count - a.count);
   const maxCount = itemSales[0]?.count ?? 1;
 
-  const categoryTotals = { bread: 0, drink: 0, goods: 0 };
+  const categoryTotals = { food: 0, drink: 0, goods: 0 };
   for (const item of itemSales) {
     if (item.category in categoryTotals) {
       categoryTotals[item.category as keyof typeof categoryTotals] += item.count;
     }
   }
 
-  const categoryRevenue = { bread: 0, drink: 0, goods: 0 };
+  const categoryRevenue = { food: 0, drink: 0, goods: 0 };
   for (const order of soldOrders) {
     for (const item of order.items) {
       const category = item.category;
@@ -587,11 +584,11 @@ export default function StaffDashboardPage() {
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-center">
                 <Croissant size={18} className="mx-auto mb-1 text-amber-700" />
                 <p className="text-xl font-black text-amber-700">
-                  {categoryTotals.bread}
+                  {categoryTotals.food}
                   <span className="text-xs font-normal">個</span>
                 </p>
-                <p className="text-xs font-bold text-amber-700">{formatPrice(categoryRevenue.bread)}</p>
-                <p className="text-xs text-amber-600">パン合計</p>
+                <p className="text-xs font-bold text-amber-700">{formatPrice(categoryRevenue.food)}</p>
+                <p className="text-xs text-amber-600">パン・お菓子</p>
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 text-center">
                 <CupSoda size={18} className="mx-auto mb-1 text-blue-700" />
@@ -600,7 +597,7 @@ export default function StaffDashboardPage() {
                   <span className="text-xs font-normal">個</span>
                 </p>
                 <p className="text-xs font-bold text-blue-700">{formatPrice(categoryRevenue.drink)}</p>
-                <p className="text-xs text-blue-600">ドリンク合計</p>
+                <p className="text-xs text-blue-600">ドリンク</p>
               </div>
               <div className="bg-purple-50 border border-purple-200 rounded-2xl p-3 text-center">
                 <Shirt size={18} className="mx-auto mb-1 text-purple-700" />
@@ -609,7 +606,7 @@ export default function StaffDashboardPage() {
                   <span className="text-xs font-normal">個</span>
                 </p>
                 <p className="text-xs font-bold text-purple-700">{formatPrice(categoryRevenue.goods)}</p>
-                <p className="text-xs text-purple-600">大学グッズ合計</p>
+                <p className="text-xs text-purple-600">大学グッズ</p>
               </div>
             </div>
 

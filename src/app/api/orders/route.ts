@@ -4,6 +4,7 @@ import {
   BREAD_ORDER_LIMIT,
   getAvailableTimeSlots,
   getReservableDate,
+  isBread,
   toJstDateString,
 } from "@/lib/utils";
 import { getAvailability, releaseOverdueReservations } from "@/lib/availability";
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
 
     const requestedBreadTotal = items.reduce((sum, item) => {
       const product = productMap.get(item.productId);
-      return product?.category === "bread" ? sum + item.quantity : sum;
+      return product && isBread(product) ? sum + item.quantity : sum;
     }, 0);
     if (requestedBreadTotal > BREAD_ORDER_LIMIT) {
       return NextResponse.json(
@@ -130,7 +131,7 @@ export async function POST(request: NextRequest) {
     if (stampCard?.freeItemAvailable) {
       const breadItems = items
         .map((item) => ({ item, product: productMap.get(item.productId)! }))
-        .filter(({ product }) => product.category === "bread")
+        .filter(({ product }) => isBread(product))
         .sort((a, b) => a.product.price - b.product.price);
       if (breadItems.length > 0) {
         freeBreadDiscount = breadItems[0].product.price;
@@ -173,6 +174,7 @@ export async function POST(request: NextRequest) {
               name: product.name,
               imageUrl: product.imageUrl,
               category: product.category,
+              subCategory: product.subCategory,
             };
           }),
         },
@@ -187,7 +189,7 @@ export async function POST(request: NextRequest) {
     // Bonus stamp: bread qty ≥ 3 OR goods qty ≥ 1 in this order
     const breadTotal = items.reduce((sum, item) => {
       const p = productMap.get(item.productId);
-      return p?.category === "bread" ? sum + item.quantity : sum;
+      return p && isBread(p) ? sum + item.quantity : sum;
     }, 0);
     const goodsTotal = items.reduce((sum, item) => {
       const p = productMap.get(item.productId);

@@ -9,6 +9,8 @@ import ProductCard from "@/components/features/ProductCard";
 import StepIndicator from "@/components/features/StepIndicator";
 import { useBakeryStore } from "@/lib/store";
 import {
+  CATEGORIES as SALE_CATEGORIES,
+  CATEGORY_LABELS,
   formatJstDateLabel,
   formatPrice,
   getReservableDate,
@@ -17,9 +19,7 @@ import {
 
 const CATEGORIES = [
   { value: "all", label: "すべて" },
-  { value: "bread", label: "パン" },
-  { value: "drink", label: "ドリンク" },
-  { value: "goods", label: "グッズ" },
+  ...SALE_CATEGORIES.map((value) => ({ value, label: CATEGORY_LABELS[value] })),
 ];
 
 // Mirrors ProductAvailability from @/lib/availability
@@ -27,6 +27,7 @@ interface AvailabilityItem {
   id: string;
   name: string;
   category: string;
+  subCategory: string;
   price: number;
   imageUrl: string;
   description: string;

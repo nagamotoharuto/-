@@ -20,6 +20,8 @@ import {
   Check,
 } from "lucide-react";
 import {
+  CATEGORIES,
+  CATEGORY_LABELS,
   cn,
   formatJstDateLabel,
   formatPrice,
@@ -27,6 +29,8 @@ import {
   getReservableQty,
   isWithinSalesHours,
   RESERVATION_RATIO,
+  SUB_CATEGORIES,
+  SUB_CATEGORY_LABELS,
   toJstDateString,
 } from "@/lib/utils";
 import StaffHeader from "@/components/features/StaffHeader";
@@ -35,6 +39,7 @@ interface Product {
   id: string;
   name: string;
   category: string;
+  subCategory: string;
   price: number;
   imageUrl: string;
   stock: number;
@@ -49,6 +54,8 @@ interface DailyFigures {
   reservableQty: number;
   reservedQty: number;
   remainingQty: number;
+  shelfQty: number | null;
+  unfulfilledQty: number;
 }
 
 interface EditState {
@@ -59,12 +66,6 @@ interface EditState {
   stock: number;
   isAvailable: boolean;
 }
-
-const CATEGORY_LABELS: Record<string, string> = {
-  bread: "パン",
-  drink: "ドリンク",
-  goods: "グッズ",
-};
 
 function toEditState(p: Product): EditState {
   return {
@@ -205,7 +206,7 @@ export default function InventoryPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newProduct, setNewProduct] = useState({ name: "", category: "bread", price: "", imageUrl: "", stock: 0, description: "" });
+  const [newProduct, setNewProduct] = useState({ name: "", category: "food", subCategory: "bread", price: "", imageUrl: "", stock: 0, description: "" });
   const [addError, setAddError] = useState("");
   const [addSaving, setAddSaving] = useState(false);
   const [stockUpdating, setStockUpdating] = useState<string | null>(null);
@@ -218,6 +219,7 @@ export default function InventoryPage() {
   const [daily, setDaily] = useState<Record<string, DailyFigures>>({});
   const [dailyLoading, setDailyLoading] = useState(true);
   const [plannedSavedId, setPlannedSavedId] = useState<string | null>(null);
+  const [shelfBusy, setShelfBusy] = useState<string | null>(null);
   const [dailyReloadKey, setDailyReloadKey] = useState(0);
 
   useEffect(() => {
@@ -257,6 +259,8 @@ export default function InventoryPage() {
             reservableQty: item.reservableQty,
             reservedQty: item.reservedQty,
             remainingQty: item.remainingQty,
+            shelfQty: item.shelfQty,
+            unfulfilledQty: item.unfulfilledQty,
           };
         }
         setDaily(map);
@@ -277,22 +281,37 @@ export default function InventoryPage() {
     setSaleDate(next);
   }
 
+  /**
+   * 入力中の発注数から予約枠をその場で計算し直す。
+   * 保存を待たずに数字が出るので、何個予約枠になるかを見ながら発注数を決められる。
+   */
+  function previewPlannedQty(productId: string, plannedQty: number) {
+    const safe = Math.max(0, plannedQty);
+    const reservable = getReservableQty(safe);
+
+    setDaily((prev) => {
+      const current = prev[productId];
+      const reserved = current?.reservedQty ?? 0;
+      return {
+        ...prev,
+        [productId]: {
+          isOffered: safe > 0,
+          plannedQty: safe,
+          reservableQty: reservable,
+          reservedQty: reserved,
+          remainingQty: Math.max(0, reservable - reserved),
+          // 店頭在庫は発注数と同じ数から始まる。まだ決まっていなければ追随させる。
+          shelfQty: current?.shelfQty ?? safe,
+          unfulfilledQty: current?.unfulfilledQty ?? 0,
+        },
+      };
+    });
+  }
+
   // 発注数はその販売日の予約枠(70%)の基準になる。0ならその日は販売しない。
   async function savePlannedQty(productId: string, plannedQty: number) {
     const safe = Math.max(0, plannedQty);
-    const reserved = daily[productId]?.reservedQty ?? 0;
-    const reservable = getReservableQty(safe);
-
-    setDaily((prev) => ({
-      ...prev,
-      [productId]: {
-        isOffered: safe > 0,
-        plannedQty: safe,
-        reservableQty: reservable,
-        reservedQty: reserved,
-        remainingQty: Math.max(0, reservable - reserved),
-      },
-    }));
+    previewPlannedQty(productId, safe);
 
     const res = await fetch("/api/daily-stock", {
       method: "PATCH",
@@ -309,6 +328,52 @@ export default function InventoryPage() {
       () => setPlannedSavedId((current) => (current === productId ? null : current)),
       1500
     );
+    // 店頭在庫の初期化はサーバー側で行うので、保存後の値を取り直す
+    setDailyReloadKey((k) => k + 1);
+  }
+
+  /**
+   * 店頭在庫を1つ動かす。飛び込み客に売れたら「−1」、数え間違いは「+1」で戻す。
+   * 発注数と同じ数から始まり、ここで減った分が飛び込み販売数になる。
+   */
+  async function adjustShelfQty(productId: string, delta: number) {
+    if (shelfBusy) return;
+    setShelfBusy(productId);
+
+    setDaily((prev) => {
+      const current = prev[productId];
+      if (!current) return prev;
+      const base = current.shelfQty ?? current.plannedQty;
+      return { ...prev, [productId]: { ...current, shelfQty: Math.max(0, base + delta) } };
+    });
+
+    try {
+      const res = await fetch("/api/daily-stock", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, date: saleDate, shelfDelta: delta }),
+      });
+      if (!res.ok) setDailyReloadKey((k) => k + 1);
+    } catch {
+      setDailyReloadKey((k) => k + 1);
+    } finally {
+      setShelfBusy(null);
+    }
+  }
+
+  // 数え違いのリセット用。発注数と同じ数に戻す。
+  async function resyncShelfQty(productId: string, plannedQty: number) {
+    setShelfBusy(productId);
+    try {
+      await fetch("/api/daily-stock", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, date: saleDate, shelfQty: plannedQty }),
+      });
+    } finally {
+      setShelfBusy(null);
+      setDailyReloadKey((k) => k + 1);
+    }
   }
 
   const businessOpen = isWithinSalesHours(now);
@@ -416,6 +481,7 @@ export default function InventoryPage() {
       body: JSON.stringify({
         name: newProduct.name.trim(),
         category: newProduct.category,
+        subCategory: newProduct.subCategory,
         price: priceNum,
         imageUrl: newProduct.imageUrl,
         stock: newProduct.stock,
@@ -429,12 +495,12 @@ export default function InventoryPage() {
       return;
     }
     setShowAddForm(false);
-    setNewProduct({ name: "", category: "bread", price: "", imageUrl: "", stock: 0, description: "" });
+    setNewProduct({ name: "", category: "food", subCategory: "bread", price: "", imageUrl: "", stock: 0, description: "" });
     setAddError("");
     loadProducts();
   }
 
-  const categories = ["bread", "drink", "goods"];
+  const categories = CATEGORIES;
 
   return (
     <div className="min-h-screen bg-[#fdf8f3]">
@@ -534,17 +600,36 @@ export default function InventoryPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#6b5e52] mb-1">カテゴリ</label>
+                <label className="block text-xs font-bold text-[#6b5e52] mb-1">売り場</label>
                 <select
                   value={newProduct.category}
                   onChange={(e) => setNewProduct(p => ({ ...p, category: e.target.value }))}
                   className="w-full border border-[#e8e0d8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] bg-white"
                 >
-                  <option value="bread">パン</option>
-                  <option value="drink">ドリンク</option>
-                  <option value="goods">グッズ</option>
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+                  ))}
                 </select>
               </div>
+
+              {/* 図鑑・購入上限・スタンプ特典・AIカウントはパンだけが対象なので内訳を持つ */}
+              {newProduct.category === "food" && (
+                <div>
+                  <label className="block text-xs font-bold text-[#6b5e52] mb-1">内訳</label>
+                  <select
+                    value={newProduct.subCategory}
+                    onChange={(e) => setNewProduct(p => ({ ...p, subCategory: e.target.value }))}
+                    className="w-full border border-[#e8e0d8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] bg-white"
+                  >
+                    {SUB_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{SUB_CATEGORY_LABELS[c]}</option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-[#6b5e52] mt-1">
+                    パンだけが図鑑・購入上限・スタンプ特典・AIカウントの対象になります
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-[#6b5e52] mb-1">金額（円）</label>
@@ -598,7 +683,7 @@ export default function InventoryPage() {
 
               <div className="flex gap-2">
                 <button
-                  onClick={() => { setShowAddForm(false); setAddError(""); setNewProduct({ name: "", category: "bread", price: "", imageUrl: "", stock: 0, description: "" }); }}
+                  onClick={() => { setShowAddForm(false); setAddError(""); setNewProduct({ name: "", category: "food", subCategory: "bread", price: "", imageUrl: "", stock: 0, description: "" }); }}
                   className="flex-1 border border-[#e8e0d8] text-[#6b5e52] rounded-xl py-2.5 text-sm font-bold hover:bg-[#f5f0eb] transition-colors"
                 >
                   キャンセル
@@ -650,7 +735,14 @@ export default function InventoryPage() {
                       reservableQty: 0,
                       reservedQty: 0,
                       remainingQty: 0,
+                      shelfQty: null,
+                      unfulfilledQty: 0,
                     };
+                    // 店頭在庫が未設定なら発注数と同じ数から始まる
+                    const shelfQty = figures.shelfQty ?? figures.plannedQty;
+                    // 店頭で売り続けると予約分が足りなくなる状態
+                    const shelfShort =
+                      figures.plannedQty > 0 && shelfQty < figures.unfulfilledQty;
 
                     return (
                       <div
@@ -675,104 +767,127 @@ export default function InventoryPage() {
                             <p className="text-xs text-[#6b5e52]">
                               {formatPrice(Number(edit.price) || product.price)}
                             </p>
-                            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                              {/* 発注数: drives this sale date's reservation quota */}
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs text-[#6b5e52]">発注数</span>
+                            <div className="flex flex-col gap-2 mt-2">
+                              {/* 発注数：入力すると予約枠がその場で計算される */}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs text-[#6b5e52] w-12">発注数</span>
                                 <input
                                   type="number"
                                   min={0}
                                   value={figures.plannedQty}
                                   disabled={dailyLoading}
-                                  onChange={(e) => {
-                                    const next = Math.max(0, parseInt(e.target.value, 10) || 0);
-                                    setDaily((prev) => ({
-                                      ...prev,
-                                      [product.id]: { ...figures, plannedQty: next },
-                                    }));
-                                  }}
+                                  onChange={(e) =>
+                                    previewPlannedQty(
+                                      product.id,
+                                      Math.max(0, parseInt(e.target.value, 10) || 0)
+                                    )
+                                  }
                                   onBlur={(e) =>
                                     savePlannedQty(
                                       product.id,
                                       Math.max(0, parseInt(e.target.value, 10) || 0)
                                     )
                                   }
-                                  className="w-14 border border-[#e8e0d8] rounded-lg px-2 py-1 text-right text-sm font-black bg-[#fdf8f3] focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] disabled:opacity-50"
+                                  className="w-16 border border-[#e8e0d8] rounded-lg px-2 py-1 text-right text-sm font-black bg-[#fdf8f3] focus:outline-none focus:ring-2 focus:ring-[#8B1A2C] disabled:opacity-50"
                                 />
                                 {plannedSavedId === product.id && (
                                   <Check size={14} className="text-green-600" />
                                 )}
+                                {figures.plannedQty === 0 ? (
+                                  <span className="text-[10px] font-bold text-gray-600 bg-gray-100 border border-gray-300 px-2 py-0.5 rounded-full">
+                                    この日は販売しない
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-[#6b5e52] bg-[#f5f0eb] px-2 py-0.5 rounded-full">
+                                    予約枠
+                                    <strong className="text-[#8B1A2C] mx-0.5">
+                                      {figures.reservableQty}
+                                    </strong>
+                                    ／予約済{figures.reservedQty}／残り
+                                    <strong
+                                      className={
+                                        figures.remainingQty === 0
+                                          ? "text-red-600 ml-0.5"
+                                          : "text-[#8B1A2C] ml-0.5"
+                                      }
+                                    >
+                                      {figures.remainingQty}
+                                    </strong>
+                                  </span>
+                                )}
                               </div>
 
-                              {figures.plannedQty === 0 ? (
-                                <span className="text-[10px] font-bold text-gray-600 bg-gray-100 border border-gray-300 px-2 py-0.5 rounded-full">
-                                  この日は販売しない
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-[#6b5e52] bg-[#f5f0eb] px-2 py-0.5 rounded-full">
-                                  予約枠{figures.reservableQty}／予約済{figures.reservedQty}／残り
-                                  <strong
-                                    className={
-                                      figures.remainingQty === 0 ? "text-red-600" : "text-[#8B1A2C]"
-                                    }
-                                  >
-                                    {figures.remainingQty}
-                                  </strong>
-                                </span>
-                              )}
-
-                              {/* 店頭の実在庫は「本日」だけの概念 */}
-                              {isTodayTab && (
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-xs text-[#6b5e52]">店頭</span>
+                              {/* 店頭在庫：飛び込み客に売れたら「−1」で減らす（本日のみ） */}
+                              {isTodayTab && figures.plannedQty > 0 && (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs text-[#6b5e52] w-12">店頭</span>
                                   <button
-                                    onClick={() => adjustStock(product, -1)}
-                                    disabled={product.stock <= 0 || stockUpdating === product.id}
-                                    className="w-6 h-6 flex items-center justify-center rounded-full border border-[#e8e0d8] text-[#8B1A2C] hover:bg-[#f5f0eb] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                    onClick={() => adjustShelfQty(product.id, -1)}
+                                    disabled={shelfQty <= 0 || shelfBusy === product.id}
+                                    className="flex items-center gap-1 h-8 px-3 rounded-lg bg-[#8B1A2C] text-white text-xs font-bold hover:bg-[#A52235] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                                   >
-                                    <Minus size={12} />
+                                    <Minus size={13} />
+                                    1個売れた
                                   </button>
-                                  <span className="w-7 text-center text-sm font-black text-[#1a1a1a]">
-                                    {product.stock}
+                                  <span className="text-base font-black text-[#1a1a1a] w-8 text-center">
+                                    {shelfQty}
                                   </span>
                                   <button
-                                    onClick={() => adjustStock(product, 1)}
-                                    disabled={stockUpdating === product.id}
-                                    className="w-6 h-6 flex items-center justify-center rounded-full border border-[#e8e0d8] text-[#8B1A2C] hover:bg-[#f5f0eb] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                    onClick={() => adjustShelfQty(product.id, 1)}
+                                    disabled={shelfBusy === product.id}
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#e8e0d8] text-[#8B1A2C] hover:bg-[#f5f0eb] disabled:opacity-30 transition-colors"
+                                    aria-label="店頭在庫を1つ戻す"
                                   >
-                                    <Plus size={12} />
+                                    <Plus size={13} />
                                   </button>
+                                  {shelfQty !== figures.plannedQty && (
+                                    <button
+                                      onClick={() => resyncShelfQty(product.id, figures.plannedQty)}
+                                      disabled={shelfBusy === product.id}
+                                      className="text-[10px] text-[#6b5e52] underline hover:text-[#8B1A2C] disabled:opacity-40"
+                                    >
+                                      発注数に戻す
+                                    </button>
+                                  )}
+                                  {product.subCategory === "bread" &&
+                                    shelfCounts[product.id] !== undefined && (
+                                      <span className="text-[10px] text-[#6b5e52] bg-[#f5f0eb] px-2 py-0.5 rounded-full">
+                                        AIカウント {shelfCounts[product.id]}個
+                                      </span>
+                                    )}
                                 </div>
                               )}
-                              {isTodayTab &&
-                                product.category === "bread" &&
-                                shelfCounts[product.id] !== undefined && (
-                                  <span className="text-[10px] text-[#6b5e52] bg-[#f5f0eb] px-2 py-0.5 rounded-full">
-                                    AIカウント {shelfCounts[product.id]}個
-                                  </span>
-                                )}
-                              <button
-                                onClick={() =>
-                                  updateEdit(product.id, "isAvailable", !edit.isAvailable)
-                                }
-                                className="flex items-center gap-0.5"
-                              >
-                                {effectiveAvailable ? (
-                                  <ToggleRight size={20} className="text-[#8B1A2C]" />
-                                ) : (
-                                  <ToggleLeft size={20} className="text-[#e8e0d8]" />
-                                )}
-                                <span
-                                  className={`text-xs font-bold ${
-                                    effectiveAvailable ? "text-[#8B1A2C]" : "text-[#6b5e52]"
-                                  }`}
-                                >
-                                  {effectiveAvailable ? "販売中" : "停止中"}
-                                </span>
-                              </button>
-                              {!businessOpen && edit.isAvailable && (
-                                <span className="text-[10px] text-[#6b5e52]">(営業時間外)</span>
+
+                              {/* 予約分まで売ってしまう手前で警告する */}
+                              {isTodayTab && shelfShort && (
+                                <p className="text-[11px] font-bold text-red-700 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
+                                  店頭在庫 {shelfQty} 個に対して、未受け渡しの予約が{" "}
+                                  {figures.unfulfilledQty} 個あります。これ以上店頭で売ると予約分が不足します
+                                </p>
                               )}
+
+                              {/* 販売の停止・再開（日付に関係なく商品そのものの設定） */}
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <button
+                                  onClick={() =>
+                                    updateEdit(product.id, "isAvailable", !edit.isAvailable)
+                                  }
+                                  className="flex items-center gap-0.5"
+                                >
+                                  {effectiveAvailable ? (
+                                    <ToggleRight size={20} className="text-[#8B1A2C]" />
+                                  ) : (
+                                    <ToggleLeft size={20} className="text-[#e8e0d8]" />
+                                  )}
+                                  <span
+                                    className={`text-xs font-bold ${
+                                      effectiveAvailable ? "text-[#8B1A2C]" : "text-[#6b5e52]"
+                                    }`}
+                                  >
+                                    {effectiveAvailable ? "販売中" : "停止中"}
+                                  </span>
+                                </button>
+                              </div>
                             </div>
                           </div>
                           <div className="flex flex-col gap-2 flex-shrink-0">

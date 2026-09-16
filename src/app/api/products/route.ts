@@ -4,9 +4,10 @@ import { db } from "@/lib/db";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, category, price, imageUrl, stock, description } = body as {
+    const { name, category, subCategory, price, imageUrl, stock, description } = body as {
       name: string;
       category: string;
+      subCategory?: string;
       price: number;
       imageUrl: string;
       stock: number;
@@ -23,6 +24,8 @@ export async function POST(request: NextRequest) {
         id,
         name: name.trim(),
         category,
+        // 内訳はfoodのときだけ意味を持つ
+        subCategory: category === "food" ? subCategory || "bread" : "",
         price,
         imageUrl: imageUrl || "",
         stock: stock ?? 0,
@@ -42,9 +45,13 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get("category");
+    const subCategory = searchParams.get("subCategory");
 
     const products = await db.product.findMany({
-      where: category ? { category } : undefined,
+      where: {
+        ...(category ? { category } : {}),
+        ...(subCategory ? { subCategory } : {}),
+      },
       orderBy: { createdAt: "asc" },
     });
 
