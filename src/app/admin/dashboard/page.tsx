@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ClipboardList,
@@ -13,6 +13,8 @@ import {
   PackageOpen,
   UserX,
   Undo2,
+  BellRing,
+  Sparkles,
 } from "lucide-react";
 import {
   CATEGORY_LABELS,
@@ -78,14 +80,87 @@ export default function StaffDashboardPage() {
   const [turnawayBusy, setTurnawayBusy] = useState(false);
   // Re-renders the countdowns once a minute without refetching
   const [now, setNow] = useState(() => Date.now());
+  // 新しく入った予約。スタッフが「確認しました」を押すまで強調し続ける。
+  const [newOrderIds, setNewOrderIds] = useState<string[]>([]);
+  // これまでに画面へ出た予約。初回読み込み分は既知として扱う。
+  const seenOrderIds = useRef<Set<string>>(new Set());
+  const hasLoadedOnce = useRef(false);
+
+  /**
+   * 取得した一覧を画面へ反映し、前回になかった予約を新着として拾い上げる。
+   * 画面を開いた時点の予約は「もう見たもの」として扱う。
+   */
+  const applyOrders = useCallback((list: Order[]) => {
+    if (!hasLoadedOnce.current) {
+      for (const order of list) seenOrderIds.current.add(order.id);
+      hasLoadedOnce.current = true;
+    } else {
+      const fresh = list.filter((o) => !seenOrderIds.current.has(o.id));
+      for (const order of fresh) seenOrderIds.current.add(order.id);
+      if (fresh.length > 0) {
+        setNewOrderIds((prev) => [...new Set([...prev, ...fresh.map((o) => o.id)])]);
+      }
+    }
+    setOrders(list);
+  }, []);
+
+  /** 操作のあとや手動更新で呼ぶ再取得。読み込み中の表示は出さない。 */
+  const refreshOrders = useCallback(async () => {
+    try {
+      const res = await fetch("/api/orders");
+      const data = await res.json();
+      applyOrders(Array.isArray(data) ? data : []);
+    } catch {
+      // 次の定期取得で追いつくので、ここでは何もしない
+    } finally {
+      setLoading(false);
+    }
+  }, [applyOrders]);
+
+  const loadTurnaway = useCallback(() => {
+    fetch("/api/turnaway")
+      .then((r) => r.json())
+      .then((data) => setTurnawayCount(data.count ?? 0))
+      .catch(() => {});
+  }, []);
+
+  async function recordTurnaway(undo: boolean) {
+    setTurnawayBusy(true);
+    try {
+      const res = await fetch("/api/turnaway", { method: undo ? "DELETE" : "POST" });
+      const data = await res.json();
+      if (res.ok) setTurnawayCount(data.count ?? 0);
+    } finally {
+      setTurnawayBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (typeof window !== "undefined" && !sessionStorage.getItem("staff_auth")) {
       router.push("/admin");
       return;
     }
-    loadOrders();
+
+    let cancelled = false;
+
+    // 予約はお客様の端末から入ってくるので、この画面が自分で取りに行かないと
+    // 気づけない。一覧は差し替えるだけなので表示はちらつかない。
+    function pullOrders() {
+      fetch("/api/orders")
+        .then((r) => r.json())
+        .then((data) => {
+          if (!cancelled) applyOrders(Array.isArray(data) ? data : []);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }
+
+    pullOrders();
     loadTurnaway();
+
+    const ordersId = setInterval(pullOrders, 15_000);
 
     // No-shows are swept server-side; the dashboard drives the sweep while it
     // is open, and placing an order triggers one too, so slots never stay stuck.
@@ -93,7 +168,7 @@ export default function StaffDashboardPage() {
       fetch("/api/orders/release", { method: "POST" })
         .then((r) => r.json())
         .then((data) => {
-          if (data.released > 0) loadOrders();
+          if (data.released > 0) pullOrders();
         })
         .catch(() => {});
     }, 30_000);
@@ -108,36 +183,17 @@ export default function StaffDashboardPage() {
     }, 60_000);
 
     return () => {
+      cancelled = true;
+      clearInterval(ordersId);
       clearInterval(sweepId);
       clearInterval(clockId);
       clearInterval(shelfId);
     };
-  }, [router]);
+  }, [router, applyOrders, loadTurnaway]);
 
-  function loadTurnaway() {
-    fetch("/api/turnaway")
-      .then((r) => r.json())
-      .then((data) => setTurnawayCount(data.count ?? 0))
-      .catch(() => {});
-  }
-
-  async function recordTurnaway(undo: boolean) {
-    setTurnawayBusy(true);
-    try {
-      const res = await fetch("/api/turnaway", { method: undo ? "DELETE" : "POST" });
-      const data = await res.json();
-      if (res.ok) setTurnawayCount(data.count ?? 0);
-    } finally {
-      setTurnawayBusy(false);
-    }
-  }
-
-  async function loadOrders() {
-    setLoading(true);
-    const res = await fetch("/api/orders");
-    const data = await res.json();
-    setOrders(Array.isArray(data) ? data : []);
-    setLoading(false);
+  // 予約に手をつけたら、その分の強調は役目を終える
+  function acknowledgeOrder(orderId: string) {
+    setNewOrderIds((prev) => prev.filter((id) => id !== orderId));
   }
 
   // Hand a single reservation back to the shelf without waiting for the sweep
@@ -149,7 +205,8 @@ export default function StaffDashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "released" }),
       });
-      await loadOrders();
+      acknowledgeOrder(orderId);
+      await refreshOrders();
     } finally {
       setReleasing(null);
     }
@@ -161,7 +218,8 @@ export default function StaffDashboardPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
-    loadOrders();
+    acknowledgeOrder(orderId);
+    refreshOrders();
   }
 
   const filtered =
@@ -299,7 +357,7 @@ export default function StaffDashboardPage() {
             </h1>
           </div>
           <button
-            onClick={loadOrders}
+            onClick={() => refreshOrders()}
             className="flex items-center gap-1 text-xs text-[#6b5e52] bg-white rounded-lg px-3 py-2 border border-[#e8e0d8]"
           >
             <RefreshCw size={12} />
@@ -309,6 +367,30 @@ export default function StaffDashboardPage() {
 
         {tab === "orders" ? (
           <>
+            {/* 新着予約の呼び出し。カウンターに置いたiPadでも視界の端で気づけるよう、
+                画面上部に貼り付けて明滅させる。 */}
+            {newOrderIds.length > 0 && (
+              <div className="sticky top-0 z-30 mb-4 animate-slide-down">
+                <div className="flex items-center gap-3 rounded-2xl bg-[#F0AA5A] text-white px-4 py-3 shadow-lg animate-alert-breathe">
+                  <BellRing size={22} className="flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base font-black leading-tight">
+                      新しい予約が {newOrderIds.length} 件入りました
+                    </p>
+                    <p className="text-xs opacity-90 leading-tight mt-0.5">
+                      下の一覧でオレンジ色に光っている予約です
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setNewOrderIds([])}
+                    className="flex-shrink-0 bg-white text-[#8B1A2C] rounded-xl px-4 py-2 text-sm font-bold hover:bg-[#fdf8f3] transition-colors"
+                  >
+                    確認しました
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Quick stats */}
             <div className="grid grid-cols-4 gap-2 mb-4">
               <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-3 text-center">
@@ -410,11 +492,16 @@ export default function StaffDashboardPage() {
                 {filtered.map((order) => {
                   const overdue = isOverdue(order);
                   const minsLeft = minutesUntilRelease(order);
+                  const isNew = newOrderIds.includes(order.id);
                   return (
                   <div
                     key={order.id}
                     className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${
-                      overdue ? "border-red-300 ring-1 ring-red-200" : "border-[#e8e0d8]"
+                      isNew
+                        ? "border-[#F0AA5A] ring-2 ring-[#F0AA5A] animate-ring-pulse"
+                        : overdue
+                        ? "border-red-300 ring-1 ring-red-200"
+                        : "border-[#e8e0d8]"
                     }`}
                   >
                     <div className="px-4 pt-4 pb-3 border-b border-[#e8e0d8]">
@@ -426,6 +513,12 @@ export default function StaffDashboardPage() {
                           >
                             {STATUS_LABELS[order.status]}
                           </span>
+                          {isNew && (
+                            <span className="flex items-center gap-1 text-xs font-black px-2 py-0.5 rounded-full bg-[#F0AA5A] text-white animate-pop-in">
+                              <Sparkles size={11} />
+                              新着
+                            </span>
+                          )}
                           {overdue && (
                             <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
                               <AlertTriangle size={11} />
