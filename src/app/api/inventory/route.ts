@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { compareProducts } from "@/lib/utils";
 
 export async function GET(_request: NextRequest) {
   try {
@@ -12,13 +13,14 @@ export async function GET(_request: NextRequest) {
         imageUrl: true,
         stock: true,
         isAvailable: true,
+        subCategory: true,
         description: true,
         updatedAt: true,
       },
-      orderBy: { category: "asc" },
     });
 
-    return NextResponse.json(products);
+    // パンを先、お菓子を後にして名前順。画面ごとに並びがぶれないようここで揃える。
+    return NextResponse.json([...products].sort(compareProducts));
   } catch (error) {
     console.error("GET /api/inventory error:", error);
     return NextResponse.json(

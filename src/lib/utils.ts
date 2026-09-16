@@ -183,8 +183,30 @@ export function getAvailableTimeSlots(isoDate: string, now: Date = new Date()): 
 // held back on the shelf for walk-up customers.
 export const RESERVATION_RATIO = 0.7;
 
-export function getReservableQty(plannedQty: number): number {
-  return Math.floor(Math.max(0, plannedQty) * RESERVATION_RATIO);
+// お菓子だけは全量を予約枠にする。種類が多いぶん1種あたりの個数が少なく、
+// 7割で切ると予約できる数がほとんど残らないため、店頭確保を設けない。
+export const SWEETS_RESERVATION_RATIO = 1;
+
+export function getReservationRatio(item?: {
+  category?: string;
+  subCategory?: string | null;
+} | null): number {
+  return item?.subCategory === "sweets" ? SWEETS_RESERVATION_RATIO : RESERVATION_RATIO;
+}
+
+export function getReservableQty(
+  plannedQty: number,
+  item?: { category?: string; subCategory?: string | null } | null
+): number {
+  return Math.floor(Math.max(0, plannedQty) * getReservationRatio(item));
+}
+
+// 店頭に確保される割合（%）。0なら全量が予約枠。
+export function getWalkInSharePercent(item?: {
+  category?: string;
+  subCategory?: string | null;
+} | null): number {
+  return Math.round((1 - getReservationRatio(item)) * 100);
 }
 
 // ---- 未受取予約の自動解放 ----
@@ -244,4 +266,25 @@ export const SUB_CATEGORY_LABELS: Record<string, string> = {
 // 区分統合前のデータは category 自体が "bread" だったので、そちらも拾う。
 export function isBread(item: { category: string; subCategory?: string | null }): boolean {
   return item.subCategory === "bread" || item.category === "bread";
+}
+
+// 一覧の並び順。food の中はパンを先に、お菓子を後に置き、その中は名前順。
+// 売り場をまたぐ比較にも使えるよう、区分の並びも CATEGORIES に合わせる。
+const SUB_CATEGORY_ORDER: Record<string, number> = { bread: 0, sweets: 1 };
+
+export function compareProducts(
+  a: { name: string; category: string; subCategory?: string | null },
+  b: { name: string; category: string; subCategory?: string | null }
+): number {
+  const categoryDiff =
+    CATEGORIES.indexOf(a.category as Category) - CATEGORIES.indexOf(b.category as Category);
+  if (categoryDiff !== 0) return categoryDiff;
+
+  const subDiff =
+    (SUB_CATEGORY_ORDER[a.subCategory ?? ""] ?? 99) -
+    (SUB_CATEGORY_ORDER[b.subCategory ?? ""] ?? 99);
+  if (subDiff !== 0) return subDiff;
+
+  // 日本語を辞書順に並べる
+  return a.name.localeCompare(b.name, "ja");
 }
