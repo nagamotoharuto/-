@@ -22,16 +22,24 @@ export interface ProductDayMetrics {
   reservedQty: number;
   /** 予約枠が満枠になったか */
   reachedCap: boolean;
-  /** 受け渡し済みの数 */
+  /** 受け渡し済みの数（予約） */
   handedOverQty: number;
+  /** 飛び込み客に売れた数 */
+  walkInSoldQty: number;
+  /** 予約の売上金（受け渡し済みのみ） */
+  reservedRevenue: number;
+  /** 飛び込み客の売上金 */
+  walkInRevenue: number;
   /** 未受取で解放された数 */
   releasedQty: number;
+  /** 記録上の販売数 = 受け渡し済み + 飛び込み */
+  soldQty: number;
+  /** 店頭の残数 = 発注数 − 販売数 */
+  remainingStock: number;
   /** 閉店時の残数（未入力なら null） */
   closingQty: number | null;
-  /** 実売数 = 発注数 − 残数（残数未入力なら null） */
-  soldQty: number | null;
-  /** 飛び込み販売数 = 実売数 − 受け渡し済み数 */
-  walkInSoldQty: number | null;
+  /** 記録と実際のずれ = 閉店残数 − 記録上の残数（残数未入力なら null） */
+  countDiff: number | null;
   /** 店頭在庫が0になった時刻 */
   soldOutAt: string | null;
 }
@@ -40,6 +48,19 @@ export interface DayMetrics {
   date: string;
   /** その日の予約件数（キャンセル除く） */
   reservationCount: number;
+  /** 売上金 */
+  reservedRevenue: number;
+  walkInRevenue: number;
+  totalRevenue: number;
+  /** 販売個数 */
+  reservedSoldQty: number;
+  walkInSoldQty: number;
+  totalSoldQty: number;
+  /** 発注数の合計と、記録上の残数 */
+  plannedQty: number;
+  remainingStock: number;
+  /** 閉店残数の合計（全商品そろっていなければ null） */
+  closingQty: number | null;
   /** 受け渡し済みの予約件数 */
   completedCount: number;
   /** 無断不受け取り（解放）件数 */
@@ -68,7 +89,7 @@ function toIso(value: Date | null): string | null {
 
 /** 期間内の販売日ごとの指標。date は "YYYY-MM-DD"、from/to は両端を含む。 */
 export async function getMetrics(from: string, to: string): Promise<DayMetrics[]> {
-  const [dailyStocks, orders, turnaways] = await Promise.all([
+  const [dailyStocks, orders, turnaways, walkInSales] = await Promise.all([
     db.dailyStock.findMany({
       where: { date: { gte: from, lte: to } },
       include: { product: true },
@@ -79,12 +100,14 @@ export async function getMetrics(from: string, to: string): Promise<DayMetrics[]
       include: { items: true },
     }),
     db.soldOutTurnaway.findMany({ where: { date: { gte: from, lte: to } } }),
+    db.walkInSale.findMany({ where: { date: { gte: from, lte: to } } }),
   ]);
 
   const dates = new Set<string>([
     ...dailyStocks.map((d) => d.date),
     ...orders.map((o) => o.pickupDate),
     ...turnaways.map((t) => t.date),
+    ...walkInSales.map((w) => w.date),
   ]);
 
   const result: DayMetrics[] = [];
@@ -93,6 +116,7 @@ export async function getMetrics(from: string, to: string): Promise<DayMetrics[]
     const dayStocks = dailyStocks.filter((d) => d.date === date);
     const dayOrders = orders.filter((o) => o.pickupDate === date);
     const dayTurnaways = turnaways.filter((t) => t.date === date);
+    const daySales = walkInSales.filter((w) => w.date === date);
 
     // 予約枠を消費している注文（キャンセル・解放を除く）
     const holding = dayOrders.filter((o) =>
@@ -115,12 +139,35 @@ export async function getMetrics(from: string, to: string): Promise<DayMetrics[]
     const handedMap = qtyByProduct(completed);
     const releasedMap = qtyByProduct(released);
 
+    // 予約の売上は受け渡しが済んだ分だけ。単価は注文時のものを使う。
+    const reservedRevenueMap = new Map<string, number>();
+    for (const order of completed) {
+      for (const item of order.items) {
+        reservedRevenueMap.set(
+          item.productId,
+          (reservedRevenueMap.get(item.productId) ?? 0) + item.price * item.quantity
+        );
+      }
+    }
+
+    const walkInQtyMap = new Map<string, number>();
+    const walkInRevenueMap = new Map<string, number>();
+    for (const sale of daySales) {
+      walkInQtyMap.set(sale.productId, (walkInQtyMap.get(sale.productId) ?? 0) + sale.quantity);
+      walkInRevenueMap.set(
+        sale.productId,
+        (walkInRevenueMap.get(sale.productId) ?? 0) + sale.price * sale.quantity
+      );
+    }
+
     const items: ProductDayMetrics[] = dayStocks.map((stock) => {
       const reservableQty = getReservableQty(stock.plannedQty, stock.product);
       const reservedQty = reservedMap.get(stock.productId) ?? 0;
       const handedOverQty = handedMap.get(stock.productId) ?? 0;
       const releasedQty = releasedMap.get(stock.productId) ?? 0;
-      const soldQty = stock.closingQty === null ? null : stock.plannedQty - stock.closingQty;
+      const walkInSoldQty = walkInQtyMap.get(stock.productId) ?? 0;
+      const soldQty = handedOverQty + walkInSoldQty;
+      const remainingStock = Math.max(0, stock.plannedQty - soldQty);
 
       return {
         date,
@@ -133,15 +180,27 @@ export async function getMetrics(from: string, to: string): Promise<DayMetrics[]
         // 満枠は、予約枠が1個以上ある商品で予約済みが枠に達した状態
         reachedCap: reservableQty > 0 && reservedQty >= reservableQty,
         handedOverQty,
+        walkInSoldQty,
+        reservedRevenue: reservedRevenueMap.get(stock.productId) ?? 0,
+        walkInRevenue: walkInRevenueMap.get(stock.productId) ?? 0,
         releasedQty,
-        closingQty: stock.closingQty,
         soldQty,
-        walkInSoldQty: soldQty === null ? null : soldQty - handedOverQty,
+        remainingStock,
+        closingQty: stock.closingQty,
+        // 閉店時に数えた残数と記録上の残数の差。押し忘れや数え間違いの目安になる。
+        countDiff: stock.closingQty === null ? null : stock.closingQty - remainingStock,
         soldOutAt: toIso(stock.soldOutAt),
       };
     });
 
-    const releasedQtyTotal = items.reduce((sum, i) => sum + i.releasedQty, 0);
+    const sum = (pick: (i: ProductDayMetrics) => number) =>
+      items.reduce((acc, i) => acc + pick(i), 0);
+
+    const releasedQtyTotal = sum((i) => i.releasedQty);
+    const reservedRevenue = sum((i) => i.reservedRevenue);
+    const walkInRevenue = sum((i) => i.walkInRevenue);
+    const reservedSoldQty = sum((i) => i.handedOverQty);
+    const walkInSoldQty = sum((i) => i.walkInSoldQty);
 
     // 解放した個数のうち何個が閉店までに売れたか。
     // 棚に戻した分と売れ残りの差から求めるので、残数が全商品そろった日だけ。
@@ -149,7 +208,7 @@ export async function getMetrics(from: string, to: string): Promise<DayMetrics[]
     let releasedSellThroughRate: number | null = null;
     if (closingComplete && releasedQtyTotal > 0) {
       const releasedSold = items.reduce(
-        (sum, i) => sum + Math.max(0, i.releasedQty - (i.closingQty ?? 0)),
+        (acc, i) => acc + Math.max(0, i.releasedQty - (i.closingQty ?? 0)),
         0
       );
       releasedSellThroughRate = releasedSold / releasedQtyTotal;
@@ -174,6 +233,15 @@ export async function getMetrics(from: string, to: string): Promise<DayMetrics[]
       capReachedCount: items.filter((i) => i.reachedCap).length,
       turnawayCount: dayTurnaways.length,
       firstSoldOutAt: soldOutTimes[0] ?? null,
+      reservedRevenue,
+      walkInRevenue,
+      totalRevenue: reservedRevenue + walkInRevenue,
+      reservedSoldQty,
+      walkInSoldQty,
+      totalSoldQty: reservedSoldQty + walkInSoldQty,
+      plannedQty: sum((i) => i.plannedQty),
+      remainingStock: sum((i) => i.remainingStock),
+      closingQty: closingComplete ? sum((i) => i.closingQty ?? 0) : null,
       items,
     });
   }
