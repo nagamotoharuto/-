@@ -27,6 +27,7 @@ model Product {
   updatedAt   DateTime     @updatedAt
   orderItems  OrderItem[]
   dailyStocks DailyStock[]
+  walkInSales WalkInSale[]
 }
 
 // How many of a product the bakery is producing for one sale day. Decided on
@@ -39,9 +40,6 @@ model DailyStock {
   plannedQty Int      @default(0) // 発注数
   // 閉店時の残数。staff enter it at closing, so 実売数 = plannedQty - closingQty.
   // null は未入力（閉店処理がまだ済んでいない）を表す。
-  // 店頭在庫。発注数と同じ数から始め、飛び込み客に売れるたびに販売員が1つずつ減らす。
-  // カメラのAIカウント(Product.stock)とは別物で、こちらが販売員の管理する数。
-  shelfQty   Int?
   closingQty Int?
   closedAt   DateTime?
   // 店頭在庫が初めて0になった時刻。カメラのAIカウント由来で、
@@ -113,6 +111,22 @@ model ProductImage {
   mimeType  String
   byteSize  Int
   createdAt DateTime @default(now())
+}
+
+// 飛び込み客への販売。販売員が「1個売れた」を押すたびに1件増える。
+// 店頭の残数・飛び込みの売上金・販売個数はすべてこの記録から導く。
+// 単価は売った時点のものを残し、あとで商品の金額を変えても過去の売上が動かないようにする。
+model WalkInSale {
+  id        String   @id @default(cuid())
+  productId String
+  date      String // 販売日 "YYYY-MM-DD" (JST)
+  quantity  Int      @default(1)
+  price     Int
+  soldAt    DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([date])
+  @@index([productId, date])
 }
 
 model StampCard {

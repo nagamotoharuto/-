@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAvailability } from "@/lib/availability";
+import { getAvailability, syncSoldOutAt } from "@/lib/availability";
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get("date");
 
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    if (!date || !DATE_RE.test(date)) {
       return NextResponse.json({ error: "date (YYYY-MM-DD) が必要です" }, { status: 400 });
     }
 
@@ -19,33 +21,24 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Staff write a sale date's figures here: 発注数 before the day starts (normally
- * on the previous business day), and 閉店時の残数 once selling is over.
- *
- * Both are optional so the two moments can be saved independently.
+ * 販売日の数字を書き込む。発注数は営業前に、閉店残数は販売が終わってから。
+ * 別々の場面で使うので、どちらか片方だけでも更新できる。
  */
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { productId, date, plannedQty, closingQty, shelfQty, shelfDelta } = body as {
+    const { productId, date, plannedQty, closingQty } = body as {
       productId: string;
       date: string;
       plannedQty?: number;
       closingQty?: number | null;
-      shelfQty?: number;
-      shelfDelta?: number;
     };
 
-    if (!productId || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    if (!productId || !date || !DATE_RE.test(date)) {
       return NextResponse.json({ error: "productId と date が必要です" }, { status: 400 });
     }
 
-    if (
-      plannedQty === undefined &&
-      closingQty === undefined &&
-      shelfQty === undefined &&
-      shelfDelta === undefined
-    ) {
+    if (plannedQty === undefined && closingQty === undefined) {
       return NextResponse.json({ error: "更新する項目がありません" }, { status: 400 });
     }
 
@@ -74,18 +67,6 @@ export async function PATCH(request: NextRequest) {
     });
     const effectivePlanned = plannedQty ?? existing?.plannedQty ?? 0;
 
-    // 店頭在庫は発注数と同じ数から始まる。まだ決まっていないときだけ発注数に合わせ、
-    // すでに飛び込み販売で減っている場合は発注数を直しても巻き戻さない
-    // （戻したいときは shelfQty を明示的に送る）。
-    let nextShelfQty: number | undefined;
-    if (shelfQty !== undefined) {
-      nextShelfQty = Math.max(0, shelfQty);
-    } else if (shelfDelta !== undefined) {
-      nextShelfQty = Math.max(0, (existing?.shelfQty ?? effectivePlanned) + shelfDelta);
-    } else if (plannedQty !== undefined && existing?.shelfQty == null) {
-      nextShelfQty = plannedQty;
-    }
-
     if (closingQty !== undefined && closingQty !== null && closingQty > effectivePlanned) {
       return NextResponse.json(
         { error: `残数が発注数(${effectivePlanned}個)を超えています` },
@@ -93,44 +74,30 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // 売り切れ時刻は店頭在庫が0になった瞬間で記録する。数え間違いで戻したときは
-    // 消して、次に0になった時刻を採る。導入前後の売り切れ時刻の比較に使う。
-    let soldOutAt: Date | null | undefined;
-    if (nextShelfQty !== undefined) {
-      if (nextShelfQty === 0) {
-        if (!existing?.soldOutAt) soldOutAt = new Date();
-      } else if (existing?.soldOutAt) {
-        soldOutAt = null;
-      }
-    }
-
-    const dailyStock = await db.dailyStock.upsert({
+    await db.dailyStock.upsert({
       where: { productId_date: { productId, date } },
       create: {
         productId,
         date,
         plannedQty: effectivePlanned,
-        shelfQty: nextShelfQty ?? null,
-        soldOutAt: soldOutAt ?? null,
         closingQty: closingQty ?? null,
         closedAt: closingQty === undefined || closingQty === null ? null : new Date(),
       },
       update: {
         ...(plannedQty !== undefined ? { plannedQty } : {}),
-        ...(nextShelfQty !== undefined ? { shelfQty: nextShelfQty } : {}),
-        ...(soldOutAt !== undefined ? { soldOutAt } : {}),
         ...(closingQty !== undefined
-          ? {
-              closingQty,
-              closedAt: closingQty === null ? null : new Date(),
-            }
+          ? { closingQty, closedAt: closingQty === null ? null : new Date() }
           : {}),
       },
     });
 
-    return NextResponse.json(dailyStock);
+    // 発注数を変えると残数も変わるので、売り切れ時刻を取り直す
+    if (plannedQty !== undefined) await syncSoldOutAt(date, productId);
+
+    const items = await getAvailability(date);
+    return NextResponse.json({ item: items.find((i) => i.id === productId) });
   } catch (error) {
     console.error("PATCH /api/daily-stock error:", error);
-    return NextResponse.json({ error: "発注数の更新に失敗しました" }, { status: 500 });
+    return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });
   }
 }

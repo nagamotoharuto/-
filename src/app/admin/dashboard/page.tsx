@@ -3,29 +3,29 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ClipboardList,
-  RefreshCw,
-  BarChart2,
   AlertTriangle,
-  Croissant,
-  CupSoda,
-  Shirt,
-  PackageOpen,
-  UserX,
-  Undo2,
   BellRing,
+  Minus,
+  PackageOpen,
+  Plus,
+  RefreshCw,
   Sparkles,
+  Undo2,
+  UserX,
 } from "lucide-react";
+import StaffHeader from "@/components/features/StaffHeader";
 import {
+  CATEGORIES,
   CATEGORY_LABELS,
+  cn,
   formatJstDateLabel,
   formatPrice,
+  getNextBusinessDay,
   getReleaseDeadline,
   PAYMENT_LABELS,
   RELEASE_GRACE_MINUTES,
   toJstDateString,
 } from "@/lib/utils";
-import StaffHeader from "@/components/features/StaffHeader";
 
 interface Order {
   id: string;
@@ -41,6 +41,36 @@ interface Order {
   totalAmount: number;
   createdAt: string;
   items: Array<{ quantity: number; price: number; name: string; category: string }>;
+}
+
+interface AvailabilityItem {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  plannedQty: number;
+  reservableQty: number;
+  reservedQty: number;
+  unfulfilledQty: number;
+  walkInSoldQty: number;
+  remainingStock: number;
+  remainingQty: number;
+}
+
+interface DayMetrics {
+  reservedRevenue: number;
+  walkInRevenue: number;
+  totalRevenue: number;
+  reservedSoldQty: number;
+  walkInSoldQty: number;
+  totalSoldQty: number;
+  plannedQty: number;
+  remainingStock: number;
+  completedCount: number;
+  releasedCount: number;
+  releasedQty: number;
+  capReachedCount: number;
+  turnawayCount: number;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -59,37 +89,28 @@ const STATUS_COLORS: Record<string, string> = {
   released: "bg-orange-100 text-orange-800",
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  food: "bg-amber-100 text-amber-800",
-  drink: "bg-blue-100 text-blue-800",
-  goods: "bg-purple-100 text-purple-800",
-  // 区分統合前の予約データ用
-  bread: "bg-amber-100 text-amber-800",
-};
-
-export default function StaffDashboardPage() {
+export default function TodayPage() {
   const router = useRouter();
+
+  const today = toJstDateString();
+  const nextDay = getNextBusinessDay();
+
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
-  const [tab, setTab] = useState<"orders" | "sales">("orders");
-  const [salesRange, setSalesRange] = useState<"today" | "all">("today");
-  const [releasing, setReleasing] = useState<string | null>(null);
-  // 飛び込み客が売り切れで買えなかった件数。アプリからは観測できないので手入力。
+  const [items, setItems] = useState<AvailabilityItem[]>([]);
+  const [metrics, setMetrics] = useState<DayMetrics | null>(null);
   const [turnawayCount, setTurnawayCount] = useState<number | null>(null);
-  const [turnawayBusy, setTurnawayBusy] = useState(false);
-  // Re-renders the countdowns once a minute without refetching
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  const [orderDate, setOrderDate] = useState(today);
   const [now, setNow] = useState(() => Date.now());
+
   // 新しく入った予約。スタッフが「確認しました」を押すまで強調し続ける。
   const [newOrderIds, setNewOrderIds] = useState<string[]>([]);
-  // これまでに画面へ出た予約。初回読み込み分は既知として扱う。
   const seenOrderIds = useRef<Set<string>>(new Set());
   const hasLoadedOnce = useRef(false);
 
-  /**
-   * 取得した一覧を画面へ反映し、前回になかった予約を新着として拾い上げる。
-   * 画面を開いた時点の予約は「もう見たもの」として扱う。
-   */
   const applyOrders = useCallback((list: Order[]) => {
     if (!hasLoadedOnce.current) {
       for (const order of list) seenOrderIds.current.add(order.id);
@@ -104,36 +125,25 @@ export default function StaffDashboardPage() {
     setOrders(list);
   }, []);
 
-  /** 操作のあとや手動更新で呼ぶ再取得。読み込み中の表示は出さない。 */
-  const refreshOrders = useCallback(async () => {
+  /** 画面の数字をまとめて取り直す。読み込み中の表示は出さないのでちらつかない。 */
+  const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/orders");
-      const data = await res.json();
-      applyOrders(Array.isArray(data) ? data : []);
+      const [ordersRes, availRes, metricsRes, turnawayRes] = await Promise.all([
+        fetch("/api/orders").then((r) => r.json()),
+        fetch(`/api/daily-stock?date=${today}`).then((r) => r.json()),
+        fetch(`/api/metrics?from=${today}&to=${today}`).then((r) => r.json()),
+        fetch("/api/turnaway").then((r) => r.json()),
+      ]);
+      applyOrders(Array.isArray(ordersRes) ? ordersRes : []);
+      setItems(Array.isArray(availRes.items) ? availRes.items : []);
+      setMetrics(metricsRes.days?.[0] ?? null);
+      setTurnawayCount(turnawayRes.count ?? 0);
     } catch {
-      // 次の定期取得で追いつくので、ここでは何もしない
+      // 次の定期取得で追いつく
     } finally {
       setLoading(false);
     }
-  }, [applyOrders]);
-
-  const loadTurnaway = useCallback(() => {
-    fetch("/api/turnaway")
-      .then((r) => r.json())
-      .then((data) => setTurnawayCount(data.count ?? 0))
-      .catch(() => {});
-  }, []);
-
-  async function recordTurnaway(undo: boolean) {
-    setTurnawayBusy(true);
-    try {
-      const res = await fetch("/api/turnaway", { method: undo ? "DELETE" : "POST" });
-      const data = await res.json();
-      if (res.ok) setTurnawayCount(data.count ?? 0);
-    } finally {
-      setTurnawayBusy(false);
-    }
-  }
+  }, [today, applyOrders]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && !sessionStorage.getItem("staff_auth")) {
@@ -143,13 +153,19 @@ export default function StaffDashboardPage() {
 
     let cancelled = false;
 
-    // 予約はお客様の端末から入ってくるので、この画面が自分で取りに行かないと
-    // 気づけない。一覧は差し替えるだけなので表示はちらつかない。
-    function pullOrders() {
-      fetch("/api/orders")
-        .then((r) => r.json())
-        .then((data) => {
-          if (!cancelled) applyOrders(Array.isArray(data) ? data : []);
+    function pull() {
+      Promise.all([
+        fetch("/api/orders").then((r) => r.json()),
+        fetch(`/api/daily-stock?date=${today}`).then((r) => r.json()),
+        fetch(`/api/metrics?from=${today}&to=${today}`).then((r) => r.json()),
+        fetch("/api/turnaway").then((r) => r.json()),
+      ])
+        .then(([ordersRes, availRes, metricsRes, turnawayRes]) => {
+          if (cancelled) return;
+          applyOrders(Array.isArray(ordersRes) ? ordersRes : []);
+          setItems(Array.isArray(availRes.items) ? availRes.items : []);
+          setMetrics(metricsRes.days?.[0] ?? null);
+          setTurnawayCount(turnawayRes.count ?? 0);
         })
         .catch(() => {})
         .finally(() => {
@@ -157,589 +173,456 @@ export default function StaffDashboardPage() {
         });
     }
 
-    pullOrders();
-    loadTurnaway();
+    pull();
+    const pullId = setInterval(pull, 15_000);
 
-    const ordersId = setInterval(pullOrders, 15_000);
-
-    // No-shows are swept server-side; the dashboard drives the sweep while it
-    // is open, and placing an order triggers one too, so slots never stay stuck.
+    // 未受取の予約は画面を開いている間に自動で解放する
     const sweepId = setInterval(() => {
       fetch("/api/orders/release", { method: "POST" })
         .then((r) => r.json())
         .then((data) => {
-          if (data.released > 0) pullOrders();
+          if (data.released > 0) pull();
         })
         .catch(() => {});
     }, 30_000);
 
     const clockId = setInterval(() => setNow(Date.now()), 30_000);
 
-
     return () => {
       cancelled = true;
-      clearInterval(ordersId);
+      clearInterval(pullId);
       clearInterval(sweepId);
       clearInterval(clockId);
     };
-  }, [router, applyOrders, loadTurnaway]);
+  }, [router, today, applyOrders]);
 
-  // 予約に手をつけたら、その分の強調は役目を終える
   function acknowledgeOrder(orderId: string) {
     setNewOrderIds((prev) => prev.filter((id) => id !== orderId));
   }
 
-  // Hand a single reservation back to the shelf without waiting for the sweep
-  async function releaseOrder(orderId: string) {
-    setReleasing(orderId);
+  async function updateStatus(orderId: string, status: string) {
+    setBusyId(orderId);
     try {
       await fetch(`/api/orders/${orderId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "released" }),
+        body: JSON.stringify({ status }),
       });
       acknowledgeOrder(orderId);
-      await refreshOrders();
+      await refresh();
     } finally {
-      setReleasing(null);
+      setBusyId(null);
     }
   }
 
-  async function updateStatus(orderId: string, status: string) {
-    await fetch(`/api/orders/${orderId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    acknowledgeOrder(orderId);
-    refreshOrders();
+  /** 飛び込み販売。1回押すと売上金・販売数・残数・予約可能数がまとめて動く。 */
+  async function recordWalkInSale(productId: string) {
+    setBusyId(productId);
+    setError("");
+    try {
+      const res = await fetch("/api/walk-in-sales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, date: today }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error ?? "記録に失敗しました");
+      }
+      await refresh();
+    } finally {
+      setBusyId(null);
+    }
   }
 
-  const filtered =
-    filter === "all"
-      ? orders
-      : filter === "overdue"
-      ? orders.filter(isOverdue)
-      : orders.filter((o) => o.status === filter);
-
-  const today = new Date().toLocaleDateString("ja-JP", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
-  const todayPending = orders.filter((o) => o.status === "pending").length;
-  const todayReady = orders.filter((o) => o.status === "ready").length;
-
-  // Sales are grouped by the day the items are handed over, not the day the
-  // reservation was taken — a reservation made on the previous business day
-  // belongs to the sale day it was placed for.
-  function isForToday(order: Order) {
-    return order.pickupDate === toJstDateString(new Date(now));
+  async function undoWalkInSale(productId: string) {
+    setBusyId(productId);
+    try {
+      await fetch(
+        `/api/walk-in-sales?productId=${encodeURIComponent(productId)}&date=${today}`,
+        { method: "DELETE" }
+      );
+      await refresh();
+    } finally {
+      setBusyId(null);
+    }
   }
 
-  // Still awaiting collection: the only orders a release applies to
+  async function recordTurnaway(undo: boolean) {
+    setBusyId("turnaway");
+    try {
+      const res = await fetch("/api/turnaway", { method: undo ? "DELETE" : "POST" });
+      const data = await res.json();
+      if (res.ok) setTurnawayCount(data.count ?? 0);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   function isAwaitingPickup(order: Order) {
     return order.status === "pending" || order.status === "ready";
   }
 
-  // "受取未到達": past the promised pickup time but not yet released
-  function isOverdue(order: Order) {
-    if (!isAwaitingPickup(order) || !order.pickupDate) return false;
-    const [h, m] = order.pickupTime.split(":").map(Number);
-    if (Number.isNaN(h) || Number.isNaN(m)) return false;
-    const pickupAt = new Date(`${order.pickupDate}T00:00:00+09:00`).getTime() + (h * 60 + m) * 60_000;
-    return now > pickupAt;
-  }
-
-  // Minutes left before the grace period expires and the slot is auto-released.
-  // Negative once the sweep is due (it runs on the next 30s tick).
   function minutesUntilRelease(order: Order): number | null {
     if (!isAwaitingPickup(order) || !order.pickupDate) return null;
-    const deadline = getReleaseDeadline(order.pickupDate, order.pickupTime).getTime();
-    return Math.ceil((deadline - now) / 60_000);
+    return Math.ceil((getReleaseDeadline(order.pickupDate, order.pickupTime).getTime() - now) / 60_000);
   }
 
-  const overdueOrders = orders.filter(isOverdue);
-  const todayOverdue = overdueOrders.length;
-  const todayReleased = orders.filter(
-    (o) => o.status === "released" && o.pickupDate === toJstDateString(new Date(now))
-  ).length;
-
-  // Sales summary calculations
-  const rangedOrders = salesRange === "today" ? orders.filter(isForToday) : orders;
-  // Cancelled and released reservations never reached the customer through the
-  // app — released items went back to the shelf for walk-up sale.
-  const soldOrders = rangedOrders.filter(
-    (o) => o.status !== "cancelled" && o.status !== "released"
-  );
-  const completedOrders = rangedOrders.filter((o) => o.status === "completed");
-  const totalSales = completedOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-  const totalOrderCount = soldOrders.length;
-
-  const itemSalesMap = new Map<string, { name: string; category: string; count: number }>();
-  for (const order of soldOrders) {
-    for (const item of order.items) {
-      const key = item.name;
-      const existing = itemSalesMap.get(key);
-      if (existing) {
-        existing.count += item.quantity;
-      } else {
-        itemSalesMap.set(key, {
-          name: item.name,
-          category: item.category,
-          count: item.quantity,
-        });
-      }
-    }
-  }
-  const itemSales = Array.from(itemSalesMap.values()).sort((a, b) => b.count - a.count);
-  const maxCount = itemSales[0]?.count ?? 1;
-
-  const categoryTotals = { food: 0, drink: 0, goods: 0 };
-  for (const item of itemSales) {
-    if (item.category in categoryTotals) {
-      categoryTotals[item.category as keyof typeof categoryTotals] += item.count;
-    }
-  }
-
-  const categoryRevenue = { food: 0, drink: 0, goods: 0 };
-  for (const order of soldOrders) {
-    for (const item of order.items) {
-      const category = item.category;
-      if (category in categoryRevenue) {
-        categoryRevenue[category as keyof typeof categoryRevenue] += item.price * item.quantity;
-      }
-    }
-  }
+  const dateOrders = orders.filter((o) => o.pickupDate === orderDate);
+  const awaiting = dateOrders.filter(isAwaitingPickup);
+  const done = dateOrders.filter((o) => !isAwaitingPickup(o));
+  const offered = items.filter((i) => i.plannedQty > 0);
 
   return (
     <div className="min-h-screen bg-[#fdf8f3]">
-      {/* Staff header */}
       <StaffHeader />
 
-      {/* Tab switcher */}
-      <div className="bg-white border-b border-[#e8e0d8] flex">
-        <button
-          onClick={() => setTab("orders")}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-bold border-b-2 transition-colors ${
-            tab === "orders" ? "border-[#8B1A2C] text-[#8B1A2C]" : "border-transparent text-[#6b5e52]"
-          }`}
-        >
-          <ClipboardList size={15} />
-          注文管理
-        </button>
-        <button
-          onClick={() => setTab("sales")}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-bold border-b-2 transition-colors ${
-            tab === "sales" ? "border-[#8B1A2C] text-[#8B1A2C]" : "border-transparent text-[#6b5e52]"
-          }`}
-        >
-          <BarChart2 size={15} />
-          売上集計
-        </button>
-      </div>
-
-      <div className="max-w-2xl mx-auto px-4 py-4">
-        {/* Date and refresh */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-xs text-[#6b5e52]">{today}</p>
+      <div className="max-w-2xl mx-auto px-4 py-4 flex flex-col gap-5">
+        {/* ---------- 本日の数字 ---------- */}
+        <section>
+          <div className="flex items-center justify-between mb-2">
             <h1 className="font-black text-[#1a1a1a] text-lg">
-              {tab === "orders" ? "注文管理" : "売上集計"}
+              {formatJstDateLabel(today).replace("（本日）", "")} の売上
             </h1>
+            <button
+              onClick={() => refresh()}
+              className="flex items-center gap-1 text-xs text-[#6b5e52] bg-white rounded-lg px-3 py-2 border border-[#e8e0d8]"
+            >
+              <RefreshCw size={12} />
+              更新
+            </button>
           </div>
-          <button
-            onClick={() => refreshOrders()}
-            className="flex items-center gap-1 text-xs text-[#6b5e52] bg-white rounded-lg px-3 py-2 border border-[#e8e0d8]"
-          >
-            <RefreshCw size={12} />
-            更新
-          </button>
-        </div>
 
-        {tab === "orders" ? (
-          <>
-            {/* 新着予約の呼び出し。カウンターに置いたiPadでも視界の端で気づけるよう、
-                画面上部に貼り付けて明滅させる。 */}
-            {newOrderIds.length > 0 && (
-              <div className="sticky top-0 z-30 mb-4 animate-slide-down">
-                <div className="flex items-center gap-3 rounded-2xl bg-[#F0AA5A] text-white px-4 py-3 shadow-lg animate-alert-breathe">
-                  <BellRing size={22} className="flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-base font-black leading-tight">
-                      新しい予約が {newOrderIds.length} 件入りました
-                    </p>
-                    <p className="text-xs opacity-90 leading-tight mt-0.5">
-                      下の一覧でオレンジ色に光っている予約です
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setNewOrderIds([])}
-                    className="flex-shrink-0 bg-white text-[#8B1A2C] rounded-xl px-4 py-2 text-sm font-bold hover:bg-[#fdf8f3] transition-colors"
-                  >
-                    確認しました
-                  </button>
-                </div>
-              </div>
-            )}
+          <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[#f5f0eb] text-[#6b5e52] text-xs">
+                  <th className="text-left font-bold px-3 py-2"></th>
+                  <th className="text-right font-bold px-3 py-2">予約</th>
+                  <th className="text-right font-bold px-3 py-2">飛び込み</th>
+                  <th className="text-right font-bold px-3 py-2">合計</th>
+                </tr>
+              </thead>
+              <tbody className="tabular-nums">
+                <tr className="border-t border-[#e8e0d8]">
+                  <th className="text-left font-medium px-3 py-2.5 text-[#1a1a1a]">売上金</th>
+                  <td className="text-right px-3 py-2.5">{formatPrice(metrics?.reservedRevenue ?? 0)}</td>
+                  <td className="text-right px-3 py-2.5">{formatPrice(metrics?.walkInRevenue ?? 0)}</td>
+                  <td className="text-right px-3 py-2.5 font-black text-[#8B1A2C]">
+                    {formatPrice(metrics?.totalRevenue ?? 0)}
+                  </td>
+                </tr>
+                <tr className="border-t border-[#e8e0d8]">
+                  <th className="text-left font-medium px-3 py-2.5 text-[#1a1a1a]">販売個数</th>
+                  <td className="text-right px-3 py-2.5">{metrics?.reservedSoldQty ?? 0}個</td>
+                  <td className="text-right px-3 py-2.5">{metrics?.walkInSoldQty ?? 0}個</td>
+                  <td className="text-right px-3 py-2.5 font-black text-[#8B1A2C]">
+                    {metrics?.totalSoldQty ?? 0}個
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
-            {/* Quick stats */}
-            <div className="grid grid-cols-4 gap-2 mb-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-3 text-center">
-                <p className="text-2xl font-black text-yellow-700">{todayPending}</p>
-                <p className="text-xs text-yellow-600">受付中</p>
-              </div>
-              <div className="bg-green-50 border border-green-200 rounded-2xl p-3 text-center">
-                <p className="text-2xl font-black text-green-700">{todayReady}</p>
-                <p className="text-xs text-green-600">準備完了</p>
-              </div>
-              <div className="bg-red-50 border border-red-200 rounded-2xl p-3 text-center">
-                <p className="text-2xl font-black text-red-700">{todayOverdue}</p>
-                <p className="text-xs text-red-600">受取未到達</p>
-              </div>
-              <div className="bg-orange-50 border border-orange-200 rounded-2xl p-3 text-center">
-                <p className="text-2xl font-black text-orange-700">{todayReleased}</p>
-                <p className="text-xs text-orange-600">本日解放</p>
-              </div>
-            </div>
-
-            <p className="text-xs text-[#6b5e52] bg-white border border-[#e8e0d8] rounded-xl px-3 py-2 mb-4">
-              受け取り時間から{RELEASE_GRACE_MINUTES}分を過ぎた未受取の予約は自動で解放され、店頭販売に戻ります。
-              この画面を開いている間は自動で処理され、「今すぐ解放」で手動解放もできます。
-            </p>
-
-            {/* 売り切れ遭遇カウンタ：研究の「飛び込み客の売り切れ遭遇率」の元データ */}
-            <div className="bg-white border border-[#e8e0d8] rounded-2xl p-4 mb-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-[#1a1a1a] flex items-center gap-1.5">
-                    <UserX size={15} className="text-[#8B1A2C]" />
-                    売り切れでお断りした人数
-                  </p>
-                  <p className="text-xs text-[#6b5e52] mt-0.5">
-                    買いに来たが売り切れだったお客様がいたら押してください（本日分）
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-2xl font-black text-[#8B1A2C] w-10 text-right">
-                    {turnawayCount ?? "—"}
-                  </span>
-                  <button
-                    onClick={() => recordTurnaway(true)}
-                    disabled={turnawayBusy || !turnawayCount}
-                    className="w-9 h-9 flex items-center justify-center rounded-xl border border-[#e8e0d8] text-[#6b5e52] hover:bg-[#f5f0eb] disabled:opacity-30 transition-colors"
-                    aria-label="1件取り消す"
-                  >
-                    <Undo2 size={15} />
-                  </button>
-                  <button
-                    onClick={() => recordTurnaway(false)}
-                    disabled={turnawayBusy}
-                    className="px-4 h-9 rounded-xl bg-[#8B1A2C] text-white text-sm font-bold hover:bg-[#A52235] disabled:opacity-50 transition-colors"
-                  >
-                    ＋1
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Filter tabs */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-px bg-[#e8e0d8] border-t border-[#e8e0d8]">
               {[
-                { value: "all", label: "すべて" },
-                { value: "pending", label: "受付中" },
-                { value: "ready", label: "準備完了" },
-                { value: "overdue", label: "受取未到達" },
-                { value: "released", label: "解放済" },
-                { value: "completed", label: "受け渡し済" },
-              ].map((f) => (
-                <button
-                  key={f.value}
-                  onClick={() => setFilter(f.value)}
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                    filter === f.value
-                      ? "bg-[#8B1A2C] text-white"
-                      : "bg-white text-[#6b5e52] border border-[#e8e0d8]"
-                  }`}
-                >
-                  {f.label}
-                </button>
+                { label: "発注数", value: `${metrics?.plannedQty ?? 0}` },
+                { label: "残数", value: `${metrics?.remainingStock ?? 0}` },
+                { label: "受け取り済", value: `${metrics?.completedCount ?? 0}件` },
+                { label: "解放した数", value: `${metrics?.releasedQty ?? 0}` },
+                { label: "上限到達", value: `${metrics?.capReachedCount ?? 0}` },
+                { label: "売切で断り", value: `${turnawayCount ?? 0}人` },
+              ].map((s) => (
+                <div key={s.label} className="bg-white px-2 py-2.5 text-center">
+                  <p className="text-lg font-black text-[#1a1a1a] tabular-nums leading-tight">
+                    {s.value}
+                  </p>
+                  <p className="text-[10px] text-[#6b5e52] leading-tight mt-0.5">{s.label}</p>
+                </div>
               ))}
             </div>
+          </div>
 
-            {/* Orders list */}
-            {loading ? (
-              <div className="flex flex-col gap-3">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="bg-white rounded-2xl h-32 animate-pulse border border-[#e8e0d8]" />
-                ))}
+          {/* 売り切れで断った人数 */}
+          <div className="bg-white border border-[#e8e0d8] rounded-2xl p-3 mt-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[#1a1a1a] flex items-center gap-1.5">
+                <UserX size={15} className="text-[#8B1A2C]" />
+                売り切れでお断りした人数
+              </p>
+              <p className="text-xs text-[#6b5e52] mt-0.5">買えなかったお客様がいたら押してください</p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => recordTurnaway(true)}
+                disabled={busyId === "turnaway" || !turnawayCount}
+                className="w-9 h-9 flex items-center justify-center rounded-xl border border-[#e8e0d8] text-[#6b5e52] hover:bg-[#f5f0eb] disabled:opacity-30 transition-colors"
+                aria-label="1件取り消す"
+              >
+                <Undo2 size={15} />
+              </button>
+              <button
+                onClick={() => recordTurnaway(false)}
+                disabled={busyId === "turnaway"}
+                className="px-5 h-9 rounded-xl bg-[#8B1A2C] text-white text-sm font-bold hover:bg-[#A52235] disabled:opacity-50 transition-colors"
+              >
+                ＋1
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------- 飛び込み販売 ---------- */}
+        <section>
+          <h2 className="font-black text-[#1a1a1a] text-base mb-1">店頭で売れたら押す</h2>
+          <p className="text-xs text-[#6b5e52] mb-2">
+            1回押すと売上金・販売個数・残数・予約できる数がまとめて更新されます
+          </p>
+
+          {error && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mb-2">
+              {error}
+            </p>
+          )}
+
+          {loading ? (
+            <div className="bg-white rounded-2xl h-40 animate-pulse border border-[#e8e0d8]" />
+          ) : offered.length === 0 ? (
+            <p className="text-center text-sm text-[#6b5e52] bg-white border border-[#e8e0d8] rounded-2xl py-8">
+              本日の発注数が未入力です。「商品・発注」から入力してください
+            </p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {CATEGORIES.map((cat) => {
+                const catItems = offered.filter((i) => i.category === cat);
+                if (catItems.length === 0) return null;
+                return (
+                  <div key={cat}>
+                    <p className="text-xs font-bold text-[#8B1A2C] mb-1.5">{CATEGORY_LABELS[cat]}</p>
+                    <div className="flex flex-col gap-2">
+                      {catItems.map((item) => {
+                        const soldOut = item.remainingStock === 0;
+                        // 棚の残りが受け取り前の予約より少ない＝予約分を売ってしまう手前
+                        const short = item.remainingStock < item.unfulfilledQty;
+                        return (
+                          <div
+                            key={item.id}
+                            className={cn(
+                              "bg-white rounded-xl border px-3 py-2.5 flex items-center gap-3",
+                              short ? "border-red-300 bg-red-50/40" : "border-[#e8e0d8]"
+                            )}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-[#1a1a1a] truncate">{item.name}</p>
+                              <p className="text-[11px] text-[#6b5e52] tabular-nums">
+                                残り<strong className={cn("mx-0.5", soldOut && "text-red-600")}>
+                                  {item.remainingStock}
+                                </strong>
+                                ／発注{item.plannedQty}・予約{item.reservedQty}（未受取{item.unfulfilledQty}）・
+                                飛び込み{item.walkInSoldQty}
+                              </p>
+                              {short && (
+                                <p className="text-[11px] font-bold text-red-700 mt-0.5">
+                                  予約分が不足します。これ以上店頭で売らないでください
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => undoWalkInSale(item.id)}
+                              disabled={busyId === item.id || item.walkInSoldQty === 0}
+                              className="w-9 h-9 flex items-center justify-center rounded-xl border border-[#e8e0d8] text-[#6b5e52] hover:bg-[#f5f0eb] disabled:opacity-30 transition-colors flex-shrink-0"
+                              aria-label="1件取り消す"
+                            >
+                              <Plus size={15} />
+                            </button>
+                            <button
+                              onClick={() => recordWalkInSale(item.id)}
+                              disabled={busyId === item.id || soldOut}
+                              className="flex items-center gap-1 h-9 px-4 rounded-xl bg-[#8B1A2C] text-white text-sm font-bold hover:bg-[#A52235] disabled:opacity-30 transition-colors flex-shrink-0"
+                            >
+                              <Minus size={15} />
+                              {soldOut ? "売り切れ" : "売れた"}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* ---------- 予約管理 ---------- */}
+        <section>
+          <h2 className="font-black text-[#1a1a1a] text-base mb-2">予約</h2>
+
+          {newOrderIds.length > 0 && (
+            <div className="sticky top-[104px] z-30 mb-3 animate-slide-down">
+              <div className="flex items-center gap-3 rounded-2xl bg-[#F0AA5A] text-white px-4 py-3 shadow-lg animate-alert-breathe">
+                <BellRing size={22} className="flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-base font-black leading-tight">
+                    新しい予約が {newOrderIds.length} 件入りました
+                  </p>
+                  <p className="text-xs opacity-90 leading-tight mt-0.5">
+                    下でオレンジ色に光っている予約です
+                  </p>
+                </div>
+                <button
+                  onClick={() => setNewOrderIds([])}
+                  className="flex-shrink-0 bg-white text-[#8B1A2C] rounded-xl px-4 py-2 text-sm font-bold hover:bg-[#fdf8f3] transition-colors"
+                >
+                  確認しました
+                </button>
               </div>
-            ) : filtered.length === 0 ? (
-              <div className="text-center py-12 text-[#6b5e52]">
-                <ClipboardList size={40} className="mx-auto mb-2 text-[#e8e0d8]" />
-                <p>注文はありません</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {filtered.map((order) => {
-                  const overdue = isOverdue(order);
-                  const minsLeft = minutesUntilRelease(order);
-                  const isNew = newOrderIds.includes(order.id);
-                  return (
+            </div>
+          )}
+
+          <div className="flex gap-2 mb-3">
+            {[today, nextDay].map((d) => (
+              <button
+                key={d}
+                onClick={() => setOrderDate(d)}
+                className={cn(
+                  "flex-1 px-3 py-2.5 rounded-xl text-xs font-bold border transition-colors",
+                  orderDate === d
+                    ? "bg-[#8B1A2C] text-white border-[#8B1A2C]"
+                    : "bg-white text-[#6b5e52] border-[#e8e0d8]"
+                )}
+              >
+                {formatJstDateLabel(d)}
+                <span className="ml-1 opacity-80">
+                  {orders.filter((o) => o.pickupDate === d && o.status !== "cancelled").length}件
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {loading ? (
+            <div className="bg-white rounded-2xl h-32 animate-pulse border border-[#e8e0d8]" />
+          ) : dateOrders.length === 0 ? (
+            <p className="text-center text-sm text-[#6b5e52] bg-white border border-[#e8e0d8] rounded-2xl py-8">
+              この日の予約はまだありません
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {[...awaiting, ...done].map((order) => {
+                const isNew = newOrderIds.includes(order.id);
+                const minsLeft = minutesUntilRelease(order);
+                const overdue = minsLeft !== null && minsLeft <= 0;
+                return (
                   <div
                     key={order.id}
-                    className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${
+                    className={cn(
+                      "bg-white rounded-2xl border shadow-sm px-4 py-3",
                       isNew
                         ? "border-[#F0AA5A] ring-2 ring-[#F0AA5A] animate-ring-pulse"
                         : overdue
                         ? "border-red-300 ring-1 ring-red-200"
                         : "border-[#e8e0d8]"
-                    }`}
+                    )}
                   >
-                    <div className="px-4 pt-4 pb-3 border-b border-[#e8e0d8]">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl font-black text-[#8B1A2C]">#{order.orderNumber}</span>
-                          <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_COLORS[order.status]}`}
-                          >
-                            {STATUS_LABELS[order.status]}
-                          </span>
-                          {isNew && (
-                            <span className="flex items-center gap-1 text-xs font-black px-2 py-0.5 rounded-full bg-[#F0AA5A] text-white animate-pop-in">
-                              <Sparkles size={11} />
-                              新着
-                            </span>
-                          )}
-                          {overdue && (
-                            <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
-                              <AlertTriangle size={11} />
-                              受取未到達
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          {order.pickupDate && (
-                            <p className="text-xs text-[#6b5e52] leading-tight">
-                              {formatJstDateLabel(order.pickupDate, new Date(now))}
-                            </p>
-                          )}
-                          <span className="text-lg font-black text-[#1a1a1a] leading-tight">
-                            {order.pickupTime}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-[#6b5e52]">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-lg font-black text-[#8B1A2C]">#{order.orderNumber}</span>
                         <span className="font-bold text-[#1a1a1a]">{order.nickname}</span>
-                        <span>|</span>
-                        <span>{PAYMENT_LABELS[order.paymentMethod]}</span>
-                        <span>|</span>
-                        <span className="font-bold text-[#8B1A2C]">{formatPrice(order.totalAmount)}</span>
-                      </div>
-                      {order.email && (
-                        <a
-                          href={`mailto:${order.email}`}
-                          className="text-xs text-[#8B1A2C] underline break-all"
+                        {isNew && (
+                          <span className="flex items-center gap-1 text-xs font-black px-2 py-0.5 rounded-full bg-[#F0AA5A] text-white animate-pop-in">
+                            <Sparkles size={11} />
+                            新着
+                          </span>
+                        )}
+                        <span
+                          className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_COLORS[order.status]}`}
                         >
-                          {order.email}
-                        </a>
-                      )}
+                          {STATUS_LABELS[order.status]}
+                        </span>
+                      </div>
+                      <span className="text-lg font-black text-[#1a1a1a] tabular-nums flex-shrink-0">
+                        {order.pickupTime}
+                      </span>
                     </div>
-                    <div className="px-4 py-2 text-xs text-[#6b5e52]">
+
+                    <p className="text-xs text-[#6b5e52] mb-1">
                       {order.items.map((item, i) => (
                         <span key={i}>
                           {item.name} ×{item.quantity}
                           {i < order.items.length - 1 ? "、" : ""}
                         </span>
                       ))}
-                    </div>
+                      <span className="mx-1.5">|</span>
+                      {PAYMENT_LABELS[order.paymentMethod]}
+                      <span className="mx-1.5">|</span>
+                      <strong className="text-[#8B1A2C]">{formatPrice(order.totalAmount)}</strong>
+                    </p>
 
                     {minsLeft !== null && (
-                      <div className="px-4 pb-2">
-                        {minsLeft > 0 ? (
-                          <p className="text-xs text-[#6b5e52]">
-                            自動解放まであと <strong className="text-[#1a1a1a]">{minsLeft}分</strong>
-                          </p>
-                        ) : (
-                          <p className="text-xs font-bold text-orange-700">
-                            解放待ち（まもなく自動で店頭販売に戻ります）
-                          </p>
+                      <p
+                        className={cn(
+                          "text-xs mb-2",
+                          overdue ? "font-bold text-orange-700" : "text-[#6b5e52]"
                         )}
-                      </div>
+                      >
+                        {overdue ? (
+                          <span className="inline-flex items-center gap-1">
+                            <AlertTriangle size={11} />
+                            解放待ち（まもなく店頭販売に戻ります）
+                          </span>
+                        ) : (
+                          <>自動解放まであと {minsLeft}分</>
+                        )}
+                      </p>
                     )}
 
                     {order.status === "released" && order.releasedAt && (
-                      <div className="px-4 pb-2">
-                        <p className="text-xs text-orange-700">
-                          {new Date(order.releasedAt).toLocaleTimeString("ja-JP", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                          に解放し、店頭販売に戻しました
-                        </p>
-                      </div>
+                      <p className="text-xs text-orange-700 mb-2">
+                        {new Date(order.releasedAt).toLocaleTimeString("ja-JP", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        に解放し、店頭販売に戻しました
+                      </p>
                     )}
-                    {/* Action buttons */}
-                    <div className="px-4 pb-4 flex gap-2">
-                      {order.status === "pending" && (
-                        <>
+
+                    {isAwaitingPickup(order) && (
+                      <div className="flex gap-2">
+                        {order.status === "pending" && (
                           <button
                             onClick={() => updateStatus(order.id, "ready")}
-                            className="flex-1 bg-green-600 text-white text-xs font-bold py-2 rounded-xl hover:bg-green-700 transition-colors"
+                            disabled={busyId === order.id}
+                            className="flex-1 bg-green-600 text-white text-sm font-bold py-2.5 rounded-xl hover:bg-green-700 disabled:opacity-50 transition-colors"
                           >
-                            準備完了
+                            準備できた
                           </button>
-                          <button
-                            onClick={() => updateStatus(order.id, "cancelled")}
-                            className="px-4 bg-red-50 text-red-600 text-xs font-bold py-2 rounded-xl border border-red-200 hover:bg-red-100 transition-colors"
-                          >
-                            キャンセル
-                          </button>
-                        </>
-                      )}
-                      {order.status === "ready" && (
+                        )}
                         <button
                           onClick={() => updateStatus(order.id, "completed")}
-                          className="flex-1 bg-[#8B1A2C] text-white text-xs font-bold py-2 rounded-xl hover:bg-[#A52235] transition-colors"
+                          disabled={busyId === order.id}
+                          className="flex-1 bg-[#8B1A2C] text-white text-sm font-bold py-2.5 rounded-xl hover:bg-[#A52235] disabled:opacity-50 transition-colors"
                         >
-                          受け渡し完了
+                          渡した
                         </button>
-                      )}
-                      {isAwaitingPickup(order) && (
                         <button
-                          onClick={() => releaseOrder(order.id)}
-                          disabled={releasing === order.id}
-                          className="flex items-center justify-center gap-1 px-4 bg-orange-50 text-orange-700 text-xs font-bold py-2 rounded-xl border border-orange-200 hover:bg-orange-100 transition-colors disabled:opacity-50"
+                          onClick={() => updateStatus(order.id, "released")}
+                          disabled={busyId === order.id}
+                          className="flex items-center justify-center gap-1 px-3 bg-orange-50 text-orange-700 text-xs font-bold py-2.5 rounded-xl border border-orange-200 hover:bg-orange-100 disabled:opacity-50 transition-colors"
                         >
                           <PackageOpen size={13} />
-                          {releasing === order.id ? "解放中..." : "今すぐ解放"}
+                          解放
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        ) : (
-          /* Sales summary tab */
-          <>
-            {/* Range toggle */}
-            <div className="flex gap-2 mb-4">
-              {[
-                { value: "today", label: "本日" },
-                { value: "all", label: "全期間" },
-              ].map((r) => (
-                <button
-                  key={r.value}
-                  onClick={() => setSalesRange(r.value as "today" | "all")}
-                  className={`flex-1 py-2 rounded-xl text-sm font-bold transition-colors ${
-                    salesRange === r.value
-                      ? "bg-[#8B1A2C] text-white"
-                      : "bg-white text-[#6b5e52] border border-[#e8e0d8]"
-                  }`}
-                >
-                  {r.label}
-                </button>
-              ))}
+                );
+              })}
             </div>
+          )}
 
-            {/* Total sales card */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-[#8B1A2C] text-white rounded-2xl p-4 text-center">
-                <p className="text-xs text-[#F5C0C8] mb-1">
-                  {salesRange === "today" ? "本日の" : ""}受け渡し済売上
-                </p>
-                <p className="text-2xl font-black">{formatPrice(totalSales)}</p>
-              </div>
-              <div className="bg-white border border-[#e8e0d8] rounded-2xl p-4 text-center">
-                <p className="text-xs text-[#6b5e52] mb-1">
-                  {salesRange === "today" ? "本日の" : "合計"}注文件数
-                </p>
-                <p className="text-2xl font-black text-[#1a1a1a]">
-                  {totalOrderCount}
-                  <span className="text-sm font-normal text-[#6b5e52]">件</span>
-                </p>
-              </div>
-            </div>
-
-            {/* Category totals */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-center">
-                <Croissant size={18} className="mx-auto mb-1 text-amber-700" />
-                <p className="text-xl font-black text-amber-700">
-                  {categoryTotals.food}
-                  <span className="text-xs font-normal">個</span>
-                </p>
-                <p className="text-xs font-bold text-amber-700">{formatPrice(categoryRevenue.food)}</p>
-                <p className="text-xs text-amber-600">パン・お菓子</p>
-              </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 text-center">
-                <CupSoda size={18} className="mx-auto mb-1 text-blue-700" />
-                <p className="text-xl font-black text-blue-700">
-                  {categoryTotals.drink}
-                  <span className="text-xs font-normal">個</span>
-                </p>
-                <p className="text-xs font-bold text-blue-700">{formatPrice(categoryRevenue.drink)}</p>
-                <p className="text-xs text-blue-600">ドリンク</p>
-              </div>
-              <div className="bg-purple-50 border border-purple-200 rounded-2xl p-3 text-center">
-                <Shirt size={18} className="mx-auto mb-1 text-purple-700" />
-                <p className="text-xl font-black text-purple-700">
-                  {categoryTotals.goods}
-                  <span className="text-xs font-normal">個</span>
-                </p>
-                <p className="text-xs font-bold text-purple-700">{formatPrice(categoryRevenue.goods)}</p>
-                <p className="text-xs text-purple-600">大学グッズ</p>
-              </div>
-            </div>
-
-            {/* Per-item sales */}
-            <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-4">
-              <h2 className="font-bold text-[#1a1a1a] mb-3 flex items-center gap-2">
-                <BarChart2 size={16} className="text-[#8B1A2C]" />
-                商品別販売数
-              </h2>
-              {loading ? (
-                <div className="flex flex-col gap-3">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="h-10 bg-[#f5f0eb] rounded-xl animate-pulse" />
-                  ))}
-                </div>
-              ) : itemSales.length === 0 ? (
-                <p className="text-center text-sm text-[#6b5e52] py-8">データがありません</p>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {itemSales.map((item) => (
-                    <div key={item.name}>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                              CATEGORY_COLORS[item.category] ?? "bg-gray-100 text-gray-600"
-                            }`}
-                          >
-                            {CATEGORY_LABELS[item.category] ?? item.category}
-                          </span>
-                          <span className="text-sm font-bold text-[#1a1a1a]">{item.name}</span>
-                        </div>
-                        <span className="text-sm font-black text-[#8B1A2C]">{item.count}個</span>
-                      </div>
-                      <div className="w-full bg-[#f5f0eb] rounded-full h-2">
-                        <div
-                          className="bg-[#8B1A2C] h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${(item.count / maxCount) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
-        )}
+          <p className="text-xs text-[#6b5e52] mt-3">
+            受け取り時間から{RELEASE_GRACE_MINUTES}分を過ぎた予約は自動で解放され、店頭販売に戻ります。
+          </p>
+        </section>
       </div>
     </div>
   );

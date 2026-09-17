@@ -10,6 +10,9 @@ import {
 // hand the item back to the shelf, so they free their slot again.
 export const SLOT_HOLDING_STATUSES = ["pending", "ready", "completed"] as const;
 
+// 受け取り前の予約。棚には残っているが、飛び込み客に売ってはいけない分。
+const AWAITING_PICKUP_STATUSES = ["pending", "ready"] as const;
+
 // Statuses a reservation can still be released from — it has neither been
 // collected nor already given up.
 const RELEASABLE_STATUSES = ["pending", "ready"] as const;
@@ -23,22 +26,28 @@ export interface ProductAvailability {
   imageUrl: string;
   description: string;
   isAvailable: boolean;
-  /** その日の品揃えに入っているか（発注数が1個以上）。0なら customers never see it. */
+  /** その日の品揃えに入っているか（発注数が1個以上） */
   isOffered: boolean;
-  /** 発注数: how many are being produced for this sale date */
+  /** 発注数 */
   plannedQty: number;
-  /** 予約枠: the bookable share of plannedQty (the rest is held for walk-ups) */
+  /** 予約枠: 発注数のうち予約に回せる上限 */
   reservableQty: number;
   /** 店頭に確保される割合（%）。お菓子は0で、全量が予約枠になる。 */
   walkInSharePercent: number;
-  /** already booked by other customers for this date */
+  /** 予約が入っている数（キャンセル・解放を除く） */
   reservedQty: number;
+  /** まだ受け取られていない予約数 */
+  unfulfilledQty: number;
+  /** 受け渡し済みの予約数 */
+  handedOverQty: number;
+  /** 飛び込み客に売れた数 */
+  walkInSoldQty: number;
+  /** 店頭の残数 = 発注数 − 飛び込み販売 − 受け渡し済み */
+  remainingStock: number;
   /** 予約可能残数 */
   remainingQty: number;
-  /** 店頭在庫（販売員が管理。飛び込み販売のたびに減らす） */
-  shelfQty: number | null;
-  /** まだ受け渡していない予約数。店頭在庫がこれを下回ると予約分を売ってしまう */
-  unfulfilledQty: number;
+  /** 閉店時の残数（未入力なら null） */
+  closingQty: number | null;
 }
 
 /**
@@ -68,56 +77,79 @@ export async function releaseOverdueReservations(now: Date = new Date()): Promis
   return result.count;
 }
 
-/** 受け渡し前の予約数。店頭で売ってしまうと足りなくなる分。 */
-export async function getUnfulfilledQuantities(date: string): Promise<Map<string, number>> {
+/** 販売日の注文明細を、状態ごとに商品単位で数える。 */
+async function getOrderQuantities(date: string) {
   const items = await db.orderItem.findMany({
-    where: { order: { pickupDate: date, status: { in: ["pending", "ready"] } } },
-    select: { productId: true, quantity: true },
-  });
-
-  const pending = new Map<string, number>();
-  for (const item of items) {
-    pending.set(item.productId, (pending.get(item.productId) ?? 0) + item.quantity);
-  }
-  return pending;
-}
-
-/** How many of each product are already reserved for a sale date, by product id. */
-export async function getReservedQuantities(date: string): Promise<Map<string, number>> {
-  const items = await db.orderItem.findMany({
-    where: { order: { pickupDate: date, status: { in: [...SLOT_HOLDING_STATUSES] } } },
-    select: { productId: true, quantity: true },
+    where: { order: { pickupDate: date } },
+    select: { productId: true, quantity: true, order: { select: { status: true } } },
   });
 
   const reserved = new Map<string, number>();
+  const awaiting = new Map<string, number>();
+  const handedOver = new Map<string, number>();
+
+  const add = (map: Map<string, number>, id: string, qty: number) =>
+    map.set(id, (map.get(id) ?? 0) + qty);
+
   for (const item of items) {
-    reserved.set(item.productId, (reserved.get(item.productId) ?? 0) + item.quantity);
+    const status = item.order.status;
+    if ((SLOT_HOLDING_STATUSES as readonly string[]).includes(status)) {
+      add(reserved, item.productId, item.quantity);
+    }
+    if ((AWAITING_PICKUP_STATUSES as readonly string[]).includes(status)) {
+      add(awaiting, item.productId, item.quantity);
+    }
+    if (status === "completed") {
+      add(handedOver, item.productId, item.quantity);
+    }
   }
-  return reserved;
+
+  return { reserved, awaiting, handedOver };
+}
+
+/** 販売日の飛び込み販売を商品単位で数える。 */
+export async function getWalkInQuantities(date: string): Promise<Map<string, number>> {
+  const sales = await db.walkInSale.findMany({
+    where: { date },
+    select: { productId: true, quantity: true },
+  });
+
+  const sold = new Map<string, number>();
+  for (const sale of sales) {
+    sold.set(sale.productId, (sold.get(sale.productId) ?? 0) + sale.quantity);
+  }
+  return sold;
 }
 
 /**
  * Reservation availability for every product on a given sale date.
  *
- * Falls back to the product's live shelf count when staff have not entered a
- * planned quantity for the date yet, so the menu still works on a day nobody
- * filled in the 発注 sheet.
+ * 予約可能数は2つの上限の小さい方。発注数から決まる予約枠と、棚に実際に
+ * 残っている数のうち受け取り前の予約に取られていない分。飛び込み客に売れて
+ * 棚が薄くなれば、枠が余っていても予約は受けられなくなる。
  */
 export async function getAvailability(date: string): Promise<ProductAvailability[]> {
-  const [products, dailyStocks, reserved] = await Promise.all([
+  const [products, dailyStocks, orderQty, walkInSold] = await Promise.all([
     db.product.findMany(),
     db.dailyStock.findMany({ where: { date } }),
-    getReservedQuantities(date),
+    getOrderQuantities(date),
+    getWalkInQuantities(date),
   ]);
 
   const stockByProduct = new Map(dailyStocks.map((d) => [d.productId, d]));
-  const unfulfilled = await getUnfulfilledQuantities(date);
 
   return [...products].sort(compareProducts).map((p) => {
     const daily = stockByProduct.get(p.id);
-    const plannedQty = daily?.plannedQty ?? p.stock;
+    const plannedQty = daily?.plannedQty ?? 0;
     const reservableQty = getReservableQty(plannedQty, p);
-    const reservedQty = reserved.get(p.id) ?? 0;
+
+    const reservedQty = orderQty.reserved.get(p.id) ?? 0;
+    const unfulfilledQty = orderQty.awaiting.get(p.id) ?? 0;
+    const handedOverQty = orderQty.handedOver.get(p.id) ?? 0;
+    const walkInSoldQty = walkInSold.get(p.id) ?? 0;
+
+    const remainingStock = Math.max(0, plannedQty - walkInSoldQty - handedOverQty);
+
     return {
       id: p.id,
       name: p.name,
@@ -127,16 +159,44 @@ export async function getAvailability(date: string): Promise<ProductAvailability
       imageUrl: p.imageUrl,
       description: p.description,
       isAvailable: p.isAvailable,
-      // The bread line-up changes daily: a product with nothing produced for
-      // this date is simply not on that day's menu.
       isOffered: plannedQty > 0,
       plannedQty,
       reservableQty,
       walkInSharePercent: getWalkInSharePercent(p),
       reservedQty,
-      remainingQty: Math.max(0, reservableQty - reservedQty),
-      shelfQty: daily?.shelfQty ?? null,
-      unfulfilledQty: unfulfilled.get(p.id) ?? 0,
+      unfulfilledQty,
+      handedOverQty,
+      walkInSoldQty,
+      remainingStock,
+      remainingQty: Math.max(
+        0,
+        Math.min(reservableQty - reservedQty, remainingStock - unfulfilledQty)
+      ),
+      closingQty: daily?.closingQty ?? null,
     };
   });
+}
+
+/**
+ * 店頭の残数が0になった時点を売り切れ時刻として記録する。
+ * 数え間違いで在庫が戻ったときは消して、次に0になった時刻を採る。
+ */
+export async function syncSoldOutAt(date: string, productId: string): Promise<void> {
+  const [daily, orderQty, walkInSold] = await Promise.all([
+    db.dailyStock.findUnique({ where: { productId_date: { productId, date } } }),
+    getOrderQuantities(date),
+    getWalkInQuantities(date),
+  ]);
+  if (!daily) return;
+
+  const remaining =
+    daily.plannedQty -
+    (walkInSold.get(productId) ?? 0) -
+    (orderQty.handedOver.get(productId) ?? 0);
+
+  if (remaining <= 0 && !daily.soldOutAt) {
+    await db.dailyStock.update({ where: { id: daily.id }, data: { soldOutAt: new Date() } });
+  } else if (remaining > 0 && daily.soldOutAt) {
+    await db.dailyStock.update({ where: { id: daily.id }, data: { soldOutAt: null } });
+  }
 }

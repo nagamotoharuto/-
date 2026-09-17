@@ -70,27 +70,51 @@ export async function GET(request: NextRequest) {
         }
       }
       filename = `orders_${from}_${to}.csv`;
+    } else if (type === "walkin") {
+      const sales = await db.walkInSale.findMany({
+        where: { date: { gte: from, lte: to } },
+        include: { product: { select: { name: true, category: true } } },
+        orderBy: [{ date: "asc" }, { soldAt: "asc" }],
+      });
+
+      rows = [["販売日", "販売時刻", "商品名", "カテゴリ", "数量", "単価", "金額"]];
+      for (const sale of sales) {
+        rows.push([
+          sale.date, jstDateTime(sale.soldAt), sale.product.name, sale.product.category,
+          sale.quantity, sale.price, sale.price * sale.quantity,
+        ]);
+      }
+      filename = `walkin_${from}_${to}.csv`;
     } else {
       // 既定：商品×販売日の指標（研究の主要な分析単位）
       const days = await getMetrics(from, to);
       rows = [
         [
           "販売日", "商品名", "カテゴリ", "発注数", "予約枠", "予約数", "満枠到達",
-          "受け渡し数", "解放数", "閉店残数", "実売数", "飛び込み販売数", "売り切れ時刻",
-          "その日の予約件数", "受け渡し件数", "無断不受け取り件数", "無断不受け取り率",
-          "解放分の販売率", "満枠到達商品数", "売り切れ遭遇件数",
+          "受け渡し数(予約)", "飛び込み販売数", "販売数合計",
+          "予約売上", "飛び込み売上", "売上合計",
+          "解放数", "記録上の残数", "閉店残数", "記録とのずれ", "売り切れ時刻",
+          "日計:予約件数", "日計:受け渡し件数", "日計:無断不受け取り件数", "日計:無断不受け取り率",
+          "日計:解放分の販売率", "日計:満枠到達商品数", "日計:売り切れ遭遇件数",
+          "日計:予約売上", "日計:飛び込み売上", "日計:売上合計",
+          "日計:予約販売数", "日計:飛び込み販売数", "日計:販売数合計",
         ],
       ];
       for (const day of days) {
         for (const item of day.items) {
           rows.push([
             day.date, item.productName, item.category, item.plannedQty, item.reservableQty,
-            item.reservedQty, item.reachedCap ? 1 : 0, item.handedOverQty, item.releasedQty,
-            item.closingQty, item.soldQty, item.walkInSoldQty, jstDateTime(item.soldOutAt),
+            item.reservedQty, item.reachedCap ? 1 : 0,
+            item.handedOverQty, item.walkInSoldQty, item.soldQty,
+            item.reservedRevenue, item.walkInRevenue, item.reservedRevenue + item.walkInRevenue,
+            item.releasedQty, item.remainingStock, item.closingQty, item.countDiff,
+            jstDateTime(item.soldOutAt),
             day.reservationCount, day.completedCount, day.releasedCount,
             day.noShowRate === null ? "" : day.noShowRate.toFixed(4),
             day.releasedSellThroughRate === null ? "" : day.releasedSellThroughRate.toFixed(4),
             day.capReachedCount, day.turnawayCount,
+            day.reservedRevenue, day.walkInRevenue, day.totalRevenue,
+            day.reservedSoldQty, day.walkInSoldQty, day.totalSoldQty,
           ]);
         }
       }

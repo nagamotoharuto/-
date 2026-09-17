@@ -31,10 +31,11 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
 
-    const { stock, isAvailable, name, price, imageUrl, description } = body as {
+    const { stock, isAvailable, name, price, imageUrl, description, subCategory } = body as {
       stock?: number;
       isAvailable?: boolean;
       name?: string;
+      subCategory?: string;
       price?: number;
       imageUrl?: string;
       description?: string;
@@ -44,6 +45,7 @@ export async function PATCH(
       stock?: number;
       isAvailable?: boolean;
       name?: string;
+      subCategory?: string;
       price?: number;
       imageUrl?: string;
       description?: string;
@@ -51,6 +53,7 @@ export async function PATCH(
     if (stock !== undefined) updateData.stock = stock;
     if (isAvailable !== undefined) updateData.isAvailable = isAvailable;
     if (name !== undefined && name.trim()) updateData.name = name.trim();
+    if (subCategory !== undefined) updateData.subCategory = subCategory;
     if (price !== undefined && price > 0) updateData.price = price;
     if (imageUrl !== undefined && imageUrl.trim()) updateData.imageUrl = imageUrl.trim();
     if (description !== undefined) updateData.description = description;
