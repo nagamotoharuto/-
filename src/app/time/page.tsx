@@ -84,6 +84,7 @@ export default function TimePage() {
               <p className="text-sm font-bold text-[#1a1a1a]">受け取り場所</p>
               <p className="text-sm text-[#6b5e52]">1F 正面玄関前</p>
               <p className="text-xs text-[#6b5e52] mt-1">営業時間：平日11:00〜15:00（土日祝休業）</p>
+              <p className="text-xs text-[#6b5e52]">ご予約の受け取りは11:35〜14:25です</p>
             </div>
           </div>
         </div>

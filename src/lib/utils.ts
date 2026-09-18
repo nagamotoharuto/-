@@ -16,17 +16,26 @@ export function generateOrderNumber(): string {
   return `${pad(now.getHours())}${pad(now.getMinutes())}${Math.floor(Math.random() * 100).toString().padStart(2, "0")}`;
 }
 
+// 受け取り時間の枠。店は11:00〜15:00だが、開店直後と閉店間際は準備と片付けが
+// あるため、受け取りは11:30〜14:30に絞る。
+const PICKUP_START_MIN = 11 * 60 + 30;
+const PICKUP_END_MIN = 14 * 60 + 30;
+const PICKUP_STEP_MIN = 10;
+// 12:30は授業が終わる時刻で受け取りに来られないので、5分ずらした12:35を
+// 目盛りの基準に置く。結果として全ての枠が「◯時◯5分」になる。
+const PICKUP_ANCHOR_MIN = 12 * 60 + 35;
+
 export function getTimeSlots(): string[] {
+  // 基準時刻から10分刻みの目盛りを引き、受け取り可能な範囲に収まる分だけ採る
+  const stepsBack = Math.floor((PICKUP_ANCHOR_MIN - PICKUP_START_MIN) / PICKUP_STEP_MIN);
+  const first = PICKUP_ANCHOR_MIN - stepsBack * PICKUP_STEP_MIN;
+
   const slots: string[] = [];
-  for (let h = 11; h <= 14; h++) {
-    for (let m = 0; m < 60; m += 15) {
-      if (h === 14 && m > 45) break;
-      const hh = h.toString().padStart(2, "0");
-      const mm = m.toString().padStart(2, "0");
-      slots.push(`${hh}:${mm}`);
-    }
+  for (let m = first; m <= PICKUP_END_MIN; m += PICKUP_STEP_MIN) {
+    const hh = Math.floor(m / 60).toString().padStart(2, "0");
+    const mm = (m % 60).toString().padStart(2, "0");
+    slots.push(`${hh}:${mm}`);
   }
-  slots.push("15:00");
   return slots;
 }
 
