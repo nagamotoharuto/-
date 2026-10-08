@@ -17,6 +17,8 @@ export interface ShelfCountItem {
 
 export interface ShelfCountResult {
   items: ShelfCountItem[];
+  /** 棚に写っているパンの合計。種類別より信頼できるので、これを基準に配分する。 */
+  totalCount: number;
   updatedAt: string;
   error: string | null;
 }
@@ -79,6 +81,73 @@ async function loadReferenceImage(imageUrl: string): Promise<string | null> {
 }
 
 /**
+ * 棚に写っているパンの総数を数える。
+ *
+ * このモデルは「何個写っているか」は素直に答えられる一方、種類の判別は
+ * 苦手で数字が大きくぶれる。確かな方を先に押さえ、種類別の配分に使う。
+ */
+async function countTotal(shelfImageBase64: string): Promise<number> {
+  const res = await fetch(`${OLLAMA_URL}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(90_000),
+    body: JSON.stringify({
+      model: OLLAMA_MODEL,
+      stream: false,
+      format: "json",
+      options: { temperature: 0 },
+      messages: [
+        {
+          role: "system",
+          content:
+            "陳列棚の写真に写っているパンの個数を数えるアシスタントです。JSON以外出力しないでください。",
+        },
+        {
+          role: "user",
+          content:
+            'この写真に写っているパンは全部で何個ですか。袋入りのものも1個として数えてください。{"count": 個数} の形式で答えてください。',
+          images: [shelfImageBase64],
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) throw new Error(`ローカルAI(Ollama)の呼び出しに失敗しました (HTTP ${res.status})`);
+
+  const data = (await res.json()) as { message?: { content?: string } };
+  const parsed = JSON.parse(data.message?.content ?? "{}") as { count?: number };
+  return Math.max(0, Math.min(99, Math.round(Number(parsed.count) || 0)));
+}
+
+/**
+ * 種類別の見え方を、合計に合わせて配分し直す。
+ *
+ * 種類別の数字はぶれるが、どれが多くてどれが少ないかの傾向は拾える。
+ * その比率だけを使い、個数は信頼できる合計に合わせる。端数は大きい順に
+ * 配って、合計と必ず一致させる。
+ */
+function allocateToTotal(raw: number[], total: number): number[] {
+  const sum = raw.reduce((a, b) => a + b, 0);
+  if (total <= 0 || sum <= 0) return raw.map(() => 0);
+
+  const exact = raw.map((v) => (v / sum) * total);
+  const floors = exact.map((v) => Math.floor(v));
+  let remaining = total - floors.reduce((a, b) => a + b, 0);
+
+  const order = exact
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac);
+
+  const result = [...floors];
+  for (const { i } of order) {
+    if (remaining <= 0) break;
+    result[i] += 1;
+    remaining -= 1;
+  }
+  return result;
+}
+
+/**
  * 1種類ずつ「見本写真」と「棚の写真」の2枚だけを見せて数えさせる。
  *
  * 見本をまとめて渡すと、このモデルは照合をやめて 0,1,2,3… と連番を
@@ -137,7 +206,12 @@ async function refresh(): Promise<ShelfCountResult> {
   const now = new Date().toISOString();
 
   if (!cameraUrl) {
-    const result: ShelfCountResult = { items: [], updatedAt: now, error: "ライブカメラが未設定です" };
+    const result: ShelfCountResult = {
+      items: [],
+      totalCount: 0,
+      updatedAt: now,
+      error: "ライブカメラが未設定です",
+    };
     cached = result;
     cachedAt = Date.now();
     return result;
@@ -159,7 +233,7 @@ async function refresh(): Promise<ShelfCountResult> {
       .map((p) => ({ id: p.id, name: p.name, imageUrl: p.imageUrl }));
 
     if (breadProducts.length === 0) {
-      const result: ShelfCountResult = { items: [], updatedAt: now, error: null };
+      const result: ShelfCountResult = { items: [], totalCount: 0, updatedAt: now, error: null };
       cached = result;
       cachedAt = Date.now();
       return result;
@@ -171,19 +245,26 @@ async function refresh(): Promise<ShelfCountResult> {
       Promise.all(breadProducts.map((p) => loadReferenceImage(p.imageUrl))),
     ]);
 
-    // Ollamaは1つずつ処理するので、並べても速くならない。順に聞く。
-    const items: ShelfCountItem[] = [];
+    // まず棚全体の個数。ここがいちばん確かなので、種類別の基準にする。
+    const totalCount = await countTotal(imageBase64);
+
+    // 次に種類ごとの見え方。Ollamaは1つずつ処理するので順に聞く。
+    const raw: number[] = [];
     for (let i = 0; i < breadProducts.length; i++) {
-      const p = breadProducts[i];
-      items.push({
-        id: p.id,
-        name: p.name,
-        imageUrl: p.imageUrl,
-        count: await countOne(imageBase64, p.name, references[i]),
-      });
+      raw.push(await countOne(imageBase64, breadProducts[i].name, references[i]));
     }
 
-    const result: ShelfCountResult = { items, updatedAt: now, error: null };
+    // 種類別の数字は当てにならないので、比率だけ使って合計に合わせる
+    const allocated = allocateToTotal(raw, totalCount);
+
+    const items: ShelfCountItem[] = breadProducts.map((p, i) => ({
+      id: p.id,
+      name: p.name,
+      imageUrl: p.imageUrl,
+      count: allocated[i],
+    }));
+
+    const result: ShelfCountResult = { items, totalCount, updatedAt: now, error: null };
     cached = result;
     cachedAt = Date.now();
     return result;
@@ -193,6 +274,7 @@ async function refresh(): Promise<ShelfCountResult> {
     // 一時的な失敗で表示が消えないよう、直前の結果を残す
     const result: ShelfCountResult = {
       items: cached?.items ?? [],
+      totalCount: cached?.totalCount ?? 0,
       updatedAt: cached?.updatedAt ?? now,
       error: message,
     };
