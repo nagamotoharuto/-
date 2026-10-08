@@ -12,7 +12,7 @@ import BottomNav from "@/components/features/BottomNav";
 const CAMERA_SNAPSHOT_URL = process.env.NEXT_PUBLIC_CAMERA_STREAM_URL;
 const REFRESH_INTERVAL_MS = 1500;
 const FAIL_THRESHOLD = 4;
-const SHELF_COUNT_INTERVAL_MS = 30_000;
+const SHELF_COUNT_INTERVAL_MS = 60_000;
 
 interface ShelfCountItem {
   id: string;

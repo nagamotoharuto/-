@@ -3,10 +3,18 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChefHat, ShoppingBag, Clock, CheckCircle, ArrowRight, MapPin, Camera } from "lucide-react";
+import {
+  ChefHat,
+  ShoppingBag,
+  Clock,
+  CheckCircle,
+  ArrowRight,
+  MapPin,
+  Camera,
+  CalendarDays,
+} from "lucide-react";
 import { useBakeryStore } from "@/lib/store";
 import BottomNav from "@/components/features/BottomNav";
-import WeeklyMenu from "@/components/features/WeeklyMenu";
 import { formatJstDateLabel, getReservableDate, isWithinSalesHours } from "@/lib/utils";
 
 const USER_TYPES = [
@@ -99,7 +107,20 @@ export default function HomePage() {
           ))}
         </div>
 
-        <WeeklyMenu />
+        {/* 今週のパン */}
+        <Link
+          href="/weekly"
+          className="flex items-center gap-3 bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-4 mb-3 hover:border-[#8B1A2C] transition-colors"
+        >
+          <div className="w-11 h-11 bg-[#8B1A2C] rounded-full flex items-center justify-center flex-shrink-0">
+            <CalendarDays size={20} className="text-white" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-[#1a1a1a]">今週のパンを見る</p>
+            <p className="text-xs text-[#6b5e52]">月〜金のどの日に何が並ぶか分かります</p>
+          </div>
+          <ArrowRight size={18} className="text-[#8B1A2C] flex-shrink-0" />
+        </Link>
 
         {/* Live camera CTA */}
         <Link
