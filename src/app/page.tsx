@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ChefHat, ShoppingBag, Clock, CheckCircle, ArrowRight, MapPin, Camera } from "lucide-react";
 import { useBakeryStore } from "@/lib/store";
 import BottomNav from "@/components/features/BottomNav";
+import WeeklyMenu from "@/components/features/WeeklyMenu";
 import { formatJstDateLabel, getReservableDate, isWithinSalesHours } from "@/lib/utils";
 
 const USER_TYPES = [
@@ -97,6 +98,8 @@ export default function HomePage() {
             </div>
           ))}
         </div>
+
+        <WeeklyMenu />
 
         {/* Live camera CTA */}
         <Link
