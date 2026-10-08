@@ -22,6 +22,7 @@ interface ShelfCountItem {
 
 interface ShelfCountResult {
   items: ShelfCountItem[];
+  totalCount: number;
   updatedAt: string;
   error: string | null;
 }
@@ -133,10 +134,19 @@ export default function CameraPage() {
             予約できる数はメニュー画面の残り数が正しい。 */}
         {shelfCount && shelfCount.items.length > 0 && (
           <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-4 mt-4">
-            <p className="text-xs font-bold text-[#1a1a1a] mb-2 flex items-center gap-1.5">
-              <Croissant size={14} className="text-[#8B1A2C]" />
-              いま棚にあるパン（AIが映像から判定）
-            </p>
+            <div className="flex items-baseline justify-between mb-2">
+              <p className="text-xs font-bold text-[#1a1a1a] flex items-center gap-1.5">
+                <Croissant size={14} className="text-[#8B1A2C]" />
+                いま棚にあるパン
+              </p>
+              <p className="text-xs text-[#6b5e52]">
+                全部で
+                <strong className="text-[#8B1A2C] text-lg mx-1 tabular-nums">
+                  {shelfCount.totalCount}
+                </strong>
+                個
+              </p>
+            </div>
             <div className="flex flex-col gap-1.5">
               {shelfCount.items.map((item) => (
                 <div key={item.id} className="flex items-center justify-between text-xs">
@@ -154,7 +164,8 @@ export default function CameraPage() {
               ))}
             </div>
             <p className="text-[10px] text-[#6b5e52] mt-2">
-              AIが映像から自動で数えているため、実際の個数と異なる場合があります・最終更新{" "}
+              AIが映像から数えた全体の個数を、見本写真と見比べて種類ごとに振り分けた
+              おおよその数です。実際の個数と異なる場合があります・最終更新{" "}
               {new Date(shelfCount.updatedAt).toLocaleTimeString("ja-JP", {
                 hour: "2-digit",
                 minute: "2-digit",
