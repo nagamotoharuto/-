@@ -130,13 +130,27 @@ model WalkInSale {
 }
 
 model StampCard {
-  id                String   @id @default(cuid())
-  nickname          String   @unique
-  stamps            Int      @default(0)
-  totalOrders       Int      @default(0)
-  streak            Int      @default(0)
-  lastOrderDate     String   @default("")
-  freeItemAvailable Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id            String                @id @default(cuid())
+  nickname      String                @unique
+  // 使用中のカードに押されているスタンプ数。満了すると0に戻り、
+  // 達成した分は StampCardCompletion に1枚ずつ残る。
+  stamps        Int                   @default(0)
+  totalOrders   Int                   @default(0)
+  streak        Int                   @default(0)
+  lastOrderDate String                @default("")
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  completions   StampCardCompletion[]
+}
+
+// 満了したスタンプカード。特典は製作者が個別に渡すため、
+// お客様があとから「何枚ためたか」を見せられるように残しておく。
+model StampCardCompletion {
+  id          String    @id @default(cuid())
+  nickname    String
+  cardNumber  Int // 何枚目か
+  completedAt DateTime  @default(now())
+  stampCard   StampCard @relation(fields: [nickname], references: [nickname], onDelete: Cascade)
+
+  @@index([nickname])
 }

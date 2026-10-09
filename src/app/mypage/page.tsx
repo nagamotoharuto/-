@@ -2,23 +2,41 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Star, Gift, Flame, ShoppingBag, Calendar, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Star,
+  Gift,
+  Flame,
+  ShoppingBag,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Mail,
+  Award,
+} from "lucide-react";
 import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
 import { useBakeryStore } from "@/lib/store";
 import {
+  APP_AUTHOR,
+  BREAD_BONUS_THRESHOLD,
   STAMPS_PER_CARD,
   USER_TYPE_LABELS,
   formatJstDateLabel,
   formatPrice,
 } from "@/lib/utils";
 
+interface StampCardCompletion {
+  id: string;
+  cardNumber: number;
+  completedAt: string;
+}
+
 interface StampCard {
   stamps: number;
   totalOrders: number;
   streak: number;
   lastOrderDate: string;
-  freeItemAvailable: boolean;
+  completions: StampCardCompletion[];
 }
 
 interface OrderItem {
@@ -67,6 +85,7 @@ export default function MyPage() {
   const [loading, setLoading] = useState(true);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(true);
+  const [cardsOpen, setCardsOpen] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -89,7 +108,7 @@ export default function MyPage() {
   const stamps = card?.stamps ?? 0;
   const streak = card?.streak ?? 0;
   const totalOrders = card?.totalOrders ?? 0;
-  const freeItemAvailable = card?.freeItemAvailable ?? false;
+  const completions = card?.completions ?? [];
   const progress = stamps / STAMPS_PER_CARD;
   const remaining = STAMPS_PER_CARD - stamps;
 
@@ -130,15 +149,85 @@ export default function MyPage() {
           </div>
         </div>
 
-        {/* Free item banner */}
-        {freeItemAvailable && (
-          <div className="bg-[#F0AA5A] text-white rounded-2xl p-4 mb-4 flex items-center gap-3 shadow-md">
-            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-              <Gift size={20} />
-            </div>
-            <div>
-              <p className="font-black text-sm">パン1個無料！</p>
-              <p className="text-xs opacity-90">次回ご注文時にパン1品が自動で割引されます</p>
+        {/* ためたカードへの導線。製作者に見せる記録なので、すぐ開けるようにする。 */}
+        <button
+          onClick={() => setCardsOpen((v) => !v)}
+          className={`w-full rounded-2xl p-4 mb-4 flex items-center gap-3 shadow-sm border transition-colors ${
+            completions.length > 0
+              ? "bg-[#F0AA5A] text-white border-[#F0AA5A]"
+              : "bg-white text-[#1a1a1a] border-[#e8e0d8]"
+          }`}
+        >
+          <div
+            className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+              completions.length > 0 ? "bg-white/20" : "bg-[#f5f0eb]"
+            }`}
+          >
+            <Award size={20} className={completions.length > 0 ? "" : "text-[#8B1A2C]"} />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="font-black text-sm">ためたカード {completions.length}枚</p>
+            <p className={`text-xs ${completions.length > 0 ? "opacity-90" : "text-[#6b5e52]"}`}>
+              {completions.length > 0
+                ? "製作者にお見せください。タップで一覧"
+                : "満了したカードはここに保存されます"}
+            </p>
+          </div>
+          {cardsOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </button>
+
+        {cardsOpen && (
+          <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-5 mb-4">
+            <h2 className="font-bold text-[#1a1a1a] mb-3 flex items-center gap-2">
+              <Award size={16} className="text-[#8B1A2C]" />
+              ためたスタンプカード
+            </h2>
+            {completions.length === 0 ? (
+              <p className="text-xs text-center text-[#6b5e52] py-6">
+                まだありません。{STAMPS_PER_CARD}個たまると1枚保存されます
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2 mb-4">
+                {completions.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex items-center gap-3 border border-[#e8e0d8] rounded-xl px-3 py-2.5"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-[#8B1A2C] text-white flex items-center justify-center flex-shrink-0">
+                      <Star size={15} className="fill-[#F0AA5A] text-[#F0AA5A]" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-[#1a1a1a]">{c.cardNumber}枚目</p>
+                      <p className="text-xs text-[#6b5e52]">
+                        {new Date(c.completedAt).toLocaleDateString("ja-JP", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
+                        に達成
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="bg-[#fdf8f3] border border-[#e8e0d8] rounded-xl p-3">
+              <p className="text-xs font-bold text-[#1a1a1a] mb-1.5 flex items-center gap-1.5">
+                <Mail size={13} className="text-[#8B1A2C]" />
+                特典の受け取りについて
+              </p>
+              <p className="text-xs text-[#6b5e52] leading-relaxed">
+                カードがたまったら、この画面をお見せのうえ下記までご連絡ください。
+              </p>
+              <p className="text-xs text-[#1a1a1a] font-bold mt-1.5">{APP_AUTHOR.name}</p>
+              <a
+                href={`mailto:${APP_AUTHOR.email}`}
+                className="text-xs text-[#8B1A2C] underline break-all"
+              >
+                {APP_AUTHOR.email}
+              </a>
+              <p className="text-xs text-[#6b5e52] mt-1">{APP_AUTHOR.note}</p>
             </div>
           </div>
         )}
@@ -148,7 +237,7 @@ export default function MyPage() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-[#1a1a1a]">スタンプカード</h2>
             <span className="text-xs text-[#6b5e52] bg-[#f5f0eb] px-2 py-1 rounded-full">
-              {STAMPS_PER_CARD}個でパン1品無料
+              {STAMPS_PER_CARD}個で特典
             </span>
           </div>
 
@@ -184,11 +273,11 @@ export default function MyPage() {
                 />
               </div>
               <p className="text-xs text-center text-[#6b5e52]">
-                {freeItemAvailable
-                  ? "おめでとうございます！次の注文でパン1品無料！"
-                  : stamps === 0
-                  ? "注文するとスタンプが貯まります"
-                  : `あと${remaining}個でパン1品無料`}
+                {stamps === 0
+                  ? completions.length > 0
+                    ? "新しいカードです。注文するとスタンプが貯まります"
+                    : "注文するとスタンプが貯まります"
+                  : `あと${remaining}個で1枚達成`}
               </p>
             </>
           )}
@@ -290,10 +379,11 @@ export default function MyPage() {
             <span className="font-bold">スタンプ獲得ルール</span>
           </div>
           <ul className="space-y-1 pl-4 list-disc">
-            <li>1日1スタンプ獲得（翌日以降の注文で加算）</li>
-            <li>パン3個以上 または 大学グッズ1個以上でボーナス+1スタンプ</li>
-            <li>{STAMPS_PER_CARD}スタンプ達成でパン1品無料（次回注文時に自動適用）</li>
-            <li>スタンプは達成後にリセットされます</li>
+            <li>1日1回のご注文で1スタンプ（商品は何でも構いません）</li>
+            <li>パンを{BREAD_BONUS_THRESHOLD}個以上ご購入でさらに+1スタンプ</li>
+            <li>{STAMPS_PER_CARD}スタンプで1枚達成。新しいカードが自動で始まります</li>
+            <li>達成したカードは「ためたカード」に保存されます</li>
+            <li>特典のお渡しは製作者が個別に対応します。上の連絡先までお知らせください</li>
           </ul>
         </div>
       </div>

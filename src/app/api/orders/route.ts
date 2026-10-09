@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {
+  BREAD_BONUS_THRESHOLD,
   BREAD_ORDER_LIMIT,
   getAvailableTimeSlots,
   getReservableDate,
   isBread,
+  STAMPS_PER_CARD,
   toJstDateString,
 } from "@/lib/utils";
 import { getAvailability, releaseOverdueReservations } from "@/lib/availability";
@@ -124,25 +126,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for free bread eligibility (auto-applied server-side)
     const stampCard = await db.stampCard.findUnique({ where: { nickname } });
-    let freeBreadDiscount = 0;
-    let freeBreadName = "";
-    if (stampCard?.freeItemAvailable) {
-      const breadItems = items
-        .map((item) => ({ item, product: productMap.get(item.productId)! }))
-        .filter(({ product }) => isBread(product))
-        .sort((a, b) => a.product.price - b.product.price);
-      if (breadItems.length > 0) {
-        freeBreadDiscount = breadItems[0].product.price;
-        freeBreadName = breadItems[0].product.name;
-      }
-    }
 
-    const baseTotal = items.reduce((sum, item) => {
+    // 特典は製作者が個別に渡す形になったため、注文時の割引はない
+    const totalAmount = items.reduce((sum, item) => {
       return sum + productMap.get(item.productId)!.price * item.quantity;
     }, 0);
-    const totalAmount = Math.max(0, baseTotal - freeBreadDiscount);
 
     // Generate sequential order number
     const count = await db.order.count();
@@ -182,61 +171,63 @@ export async function POST(request: NextRequest) {
       include: { items: { include: { product: true } } },
     });
 
-    // Update stamp card
+    // スタンプの加算
+    // 1日1回の注文で1個。中身は問わない。パンを3個以上買うとさらに1個。
     const today = getTodayString();
     const yesterday = getYesterdayString();
 
-    // Bonus stamp: bread qty ≥ 3 OR goods qty ≥ 1 in this order
     const breadTotal = items.reduce((sum, item) => {
       const p = productMap.get(item.productId);
       return p && isBread(p) ? sum + item.quantity : sum;
     }, 0);
-    const goodsTotal = items.reduce((sum, item) => {
-      const p = productMap.get(item.productId);
-      return p?.category === "goods" ? sum + item.quantity : sum;
-    }, 0);
-    const bonusStamp = breadTotal >= 3 || goodsTotal >= 1 ? 1 : 0;
+    const bonusStamp = breadTotal >= BREAD_BONUS_THRESHOLD ? 1 : 0;
 
-    if (!stampCard) {
-      const isNewDay = true;
-      const baseStamp = 1;
-      const stampsToAdd = baseStamp + bonusStamp;
-      const reachedGoal = stampsToAdd >= 10;
-      await db.stampCard.create({
-        data: {
+    const isNewDay = stampCard ? stampCard.lastOrderDate !== today : true;
+    const stampsToAdd = (isNewDay ? 1 : 0) + bonusStamp;
+    const rawStamps = (stampCard?.stamps ?? 0) + stampsToAdd;
+
+    // 満了したら新しいカードに切り替える。1回の注文で2枚満了することは
+    // まずないが、繰り上がりが残らないよう割り算で処理する。
+    const completedNow = Math.floor(rawStamps / STAMPS_PER_CARD);
+    const newStamps = rawStamps % STAMPS_PER_CARD;
+
+    const newStreak = !stampCard
+      ? 1
+      : isNewDay
+      ? stampCard.lastOrderDate === yesterday
+        ? stampCard.streak + 1
+        : 1
+      : stampCard.streak;
+
+    await db.stampCard.upsert({
+      where: { nickname },
+      create: {
+        nickname,
+        stamps: newStamps,
+        totalOrders: 1,
+        streak: 1,
+        lastOrderDate: today,
+      },
+      update: {
+        stamps: newStamps,
+        totalOrders: { increment: 1 },
+        streak: newStreak,
+        lastOrderDate: isNewDay ? today : stampCard!.lastOrderDate,
+      },
+    });
+
+    // 満了したカードは1枚ずつ残す。お客様が製作者に見せるための記録。
+    if (completedNow > 0) {
+      const already = await db.stampCardCompletion.count({ where: { nickname } });
+      await db.stampCardCompletion.createMany({
+        data: Array.from({ length: completedNow }, (_, i) => ({
           nickname,
-          stamps: reachedGoal ? stampsToAdd - 10 : stampsToAdd,
-          totalOrders: 1,
-          streak: 1,
-          lastOrderDate: today,
-          freeItemAvailable: reachedGoal,
-        },
-      });
-    } else {
-      const isNewDay = stampCard.lastOrderDate !== today;
-      const baseStamp = isNewDay ? 1 : 0;
-      const stampsToAdd = baseStamp + bonusStamp;
-      const rawStamps = stampCard.stamps + stampsToAdd;
-      const reachedGoal = rawStamps >= 10;
-      const newStamps = reachedGoal ? rawStamps - 10 : rawStamps;
-      const newStreak = isNewDay
-        ? stampCard.lastOrderDate === yesterday ? stampCard.streak + 1 : 1
-        : stampCard.streak;
-
-      await db.stampCard.update({
-        where: { nickname },
-        data: {
-          stamps: newStamps,
-          totalOrders: { increment: 1 },
-          streak: newStreak,
-          lastOrderDate: isNewDay ? today : stampCard.lastOrderDate,
-          // Set to true if reached goal; clear if we just used a free bread
-          freeItemAvailable: freeBreadDiscount > 0 ? reachedGoal : (reachedGoal || stampCard.freeItemAvailable),
-        },
+          cardNumber: already + i + 1,
+        })),
       });
     }
 
-    return NextResponse.json({ ...order, freeBreadName: freeBreadName || null }, { status: 201 });
+    return NextResponse.json({ ...order, completedCards: completedNow }, { status: 201 });
   } catch (error) {
     console.error("POST /api/orders error:", error);
     return NextResponse.json({ error: "注文の作成に失敗しました" }, { status: 500 });
