@@ -233,7 +233,7 @@ export function getReleaseDeadline(pickupDate: string, pickupTime: string): Date
 
 export const USER_TYPE_LABELS: Record<string, string> = {
   student: "学生",
-  nursing: "看護生",
+  vocational: "専門学生",
   staff: "教職員",
   visitor: "一般来場者",
 };
@@ -247,7 +247,18 @@ export const PAYMENT_LABELS: Record<string, string> = {
 
 export const STAMPS_PER_CARD = 10;
 
+// スタンプが満了したときの特典は製作者が個別に渡すため、
+// 誰にどう連絡すればよいかを画面に出しておく。
+export const APP_AUTHOR = {
+  name: "長本 陽豊",
+  email: "23nagamoto.haruto@sanjo-u.ac.jp",
+  note: "販売所で直接お声がけいただいても大丈夫です",
+};
+
 export const BREAD_ORDER_LIMIT = 3;
+
+// この個数以上のパンを買うと、スタンプがもう1個もらえる
+export const BREAD_BONUS_THRESHOLD = 3;
 
 // ---- 売り場の区分 ----
 

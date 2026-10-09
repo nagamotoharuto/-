@@ -26,7 +26,13 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(stampCard);
+    // 満了したカードは新しい順に。お客様が製作者に見せるための記録。
+    const completions = await db.stampCardCompletion.findMany({
+      where: { nickname },
+      orderBy: { cardNumber: "desc" },
+    });
+
+    return NextResponse.json({ ...stampCard, completions });
   } catch (error) {
     console.error("GET /api/stamp error:", error);
     return NextResponse.json(

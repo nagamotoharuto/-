@@ -19,7 +19,7 @@ import { formatJstDateLabel, getReservableDate, isWithinSalesHours } from "@/lib
 
 const USER_TYPES = [
   { value: "student", label: "学生" },
-  { value: "nursing", label: "看護生" },
+  { value: "vocational", label: "専門学生" },
   { value: "staff", label: "教職員" },
   { value: "visitor", label: "一般来場者" },
 ];
