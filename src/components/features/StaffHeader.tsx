@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ChefHat, Store, Package, CalendarDays, Home, LogOut } from "lucide-react";
@@ -16,6 +17,28 @@ const NAV_ITEMS = [
 export default function StaffHeader() {
   const pathname = usePathname();
   const router = useRouter();
+  // 未読のご意見があることに、営業中の画面からでも気づけるようにする
+  const [unreadOpinions, setUnreadOpinions] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    function pull() {
+      fetch("/api/opinions")
+        .then((r) => r.json())
+        .then((data) => {
+          if (!cancelled) setUnreadOpinions(data.unreadCount ?? 0);
+        })
+        .catch(() => {});
+    }
+
+    pull();
+    const id = setInterval(pull, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [pathname]);
 
   function logout() {
     sessionStorage.removeItem("staff_auth");
@@ -59,6 +82,11 @@ export default function StaffHeader() {
             >
               <Icon size={16} />
               {label}
+              {href === "/admin/records" && unreadOpinions > 0 && (
+                <span className="bg-[#F0AA5A] text-white text-[10px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">
+                  {unreadOpinions > 9 ? "9+" : unreadOpinions}
+                </span>
+              )}
             </Link>
           );
         })}

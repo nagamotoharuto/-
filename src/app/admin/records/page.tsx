@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, Check, Download, DoorClosed, AlertTriangle } from "lucide-react";
 import StaffHeader from "@/components/features/StaffHeader";
+import OpinionList from "@/components/features/OpinionList";
 import {
   CATEGORIES,
   CATEGORY_LABELS,
@@ -161,6 +162,8 @@ export default function RecordsPage() {
       <StaffHeader />
 
       <div className="max-w-3xl mx-auto px-4 py-4 flex flex-col gap-5">
+        <OpinionList />
+
         {/* ---------- 日付選択 ---------- */}
         <section>
           <label className="flex items-center gap-1.5 text-xs font-bold text-[#6b5e52] mb-2">
