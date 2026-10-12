@@ -129,6 +129,20 @@ model WalkInSale {
   @@index([productId, date])
 }
 
+// お客様からのご意見。誰が送ったかは残さない。
+// 名前もメールも受け取らないので、スタッフ側からも送り主は分からない。
+model Opinion {
+  id        String    @id @default(cuid())
+  // product | feature | other
+  category  String    @default("other")
+  body      String
+  createdAt DateTime  @default(now())
+  // スタッフが目を通した時刻。未読の件数を出すために使う。
+  readAt    DateTime?
+
+  @@index([createdAt])
+}
+
 model StampCard {
   id            String                @id @default(cuid())
   nickname      String                @unique

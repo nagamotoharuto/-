@@ -245,6 +245,17 @@ export const PAYMENT_LABELS: Record<string, string> = {
   paypay: "PayPay",
 };
 
+// ご意見の種類。スタッフが仕分けしやすいよう、送るときに選んでもらう。
+export const OPINION_CATEGORIES = ["product", "feature", "other"] as const;
+
+export const OPINION_CATEGORY_LABELS: Record<string, string> = {
+  product: "取り扱ってほしい商品",
+  feature: "アプリへの要望",
+  other: "その他",
+};
+
+export const OPINION_MAX_LENGTH = 500;
+
 export const STAMPS_PER_CARD = 10;
 
 // スタンプが満了したときの特典は製作者が個別に渡すため、

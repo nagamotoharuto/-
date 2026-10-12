@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
+import OpinionBox from "@/components/features/OpinionBox";
 import { useBakeryStore } from "@/lib/store";
 import {
   APP_AUTHOR,
@@ -371,6 +372,8 @@ export default function MyPage() {
             </div>
           )}
         </div>
+
+        <OpinionBox />
 
         {/* Rules */}
         <div className="bg-[#f5f0eb] rounded-2xl p-4 text-xs text-[#6b5e52]">
