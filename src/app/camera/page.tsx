@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, Camera, RefreshCw, WifiOff, Croissant } from "lucide-react";
 import BottomNav from "@/components/features/BottomNav";
+import { toJstDateString } from "@/lib/utils";
 
 // URL of the camera's single-snapshot endpoint (ESP32 CameraWebServer's "/capture" on port 80,
 // exposed via a tunnel), e.g. https://xxxx.trycloudflare.com/capture
@@ -12,25 +13,22 @@ import BottomNav from "@/components/features/BottomNav";
 const CAMERA_SNAPSHOT_URL = process.env.NEXT_PUBLIC_CAMERA_STREAM_URL;
 const REFRESH_INTERVAL_MS = 1500;
 const FAIL_THRESHOLD = 4;
-const SHELF_COUNT_INTERVAL_MS = 60_000;
+// 棚の数はシステムが把握しているので、映像ほど頻繁に取り直す必要はない
+const SHELF_COUNT_INTERVAL_MS = 15_000;
 
-interface ShelfCountItem {
+interface ShelfItem {
   id: string;
   name: string;
-  count: number;
-}
-
-interface ShelfCountResult {
-  items: ShelfCountItem[];
-  totalCount: number;
-  updatedAt: string;
-  error: string | null;
+  subCategory: string;
+  plannedQty: number;
+  remainingStock: number;
 }
 
 export default function CameraPage() {
   const [src, setSrc] = useState<string | null>(null);
   const [failCount, setFailCount] = useState(0);
-  const [shelfCount, setShelfCount] = useState<ShelfCountResult | null>(null);
+  const [shelf, setShelf] = useState<ShelfItem[] | null>(null);
+  const [shelfUpdatedAt, setShelfUpdatedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!CAMERA_SNAPSHOT_URL) return;
@@ -45,17 +43,22 @@ export default function CameraPage() {
   }, []);
 
   useEffect(() => {
-    if (!CAMERA_SNAPSHOT_URL) return;
-
-    function refreshCount() {
-      fetch("/api/shelf-count")
+    // 画面に出す個数は、店頭の残数（発注数 − 飛び込み販売 − 受け渡し済み）。
+    // 映像から推測するのではなく、販売員の記録と同じ数字を見せる。
+    function refreshShelf() {
+      const today = toJstDateString();
+      fetch(`/api/daily-stock?date=${today}`)
         .then((r) => r.json())
-        .then(setShelfCount)
+        .then((data) => {
+          const items: ShelfItem[] = Array.isArray(data.items) ? data.items : [];
+          setShelf(items.filter((i) => i.subCategory === "bread" && i.plannedQty > 0));
+          setShelfUpdatedAt(new Date());
+        })
         .catch(() => {});
     }
 
-    refreshCount();
-    const id = setInterval(refreshCount, SHELF_COUNT_INTERVAL_MS);
+    refreshShelf();
+    const id = setInterval(refreshShelf, SHELF_COUNT_INTERVAL_MS);
     return () => clearInterval(id);
   }, []);
 
@@ -130,9 +133,8 @@ export default function CameraPage() {
           </div>
         )}
 
-        {/* AIが映像から数えたパンの個数。あくまで見た目の目安で、
-            予約できる数はメニュー画面の残り数が正しい。 */}
-        {shelfCount && shelfCount.items.length > 0 && (
+        {/* 棚の個数は販売員の記録と同じ数字。映像からの推測ではない。 */}
+        {shelf && shelf.length > 0 && (
           <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-4 mt-4">
             <div className="flex items-baseline justify-between mb-2">
               <p className="text-xs font-bold text-[#1a1a1a] flex items-center gap-1.5">
@@ -142,31 +144,32 @@ export default function CameraPage() {
               <p className="text-xs text-[#6b5e52]">
                 全部で
                 <strong className="text-[#8B1A2C] text-lg mx-1 tabular-nums">
-                  {shelfCount.totalCount}
+                  {shelf.reduce((sum, i) => sum + i.remainingStock, 0)}
                 </strong>
                 個
               </p>
             </div>
             <div className="flex flex-col gap-1.5">
-              {shelfCount.items.map((item) => (
+              {shelf.map((item) => (
                 <div key={item.id} className="flex items-center justify-between text-xs">
-                  <span className="text-[#6b5e52]">{item.name}</span>
+                  <span className={item.remainingStock === 0 ? "text-[#c8bdb5]" : "text-[#6b5e52]"}>
+                    {item.name}
+                  </span>
                   <span
                     className={
-                      item.count === 0
+                      item.remainingStock === 0
                         ? "font-bold text-[#c8bdb5]"
                         : "font-bold text-[#8B1A2C]"
                     }
                   >
-                    {item.count}個
+                    {item.remainingStock === 0 ? "売り切れ" : `${item.remainingStock}個`}
                   </span>
                 </div>
               ))}
             </div>
             <p className="text-[10px] text-[#6b5e52] mt-2">
-              AIが映像から数えた全体の個数を、見本写真と見比べて種類ごとに振り分けた
-              おおよその数です。実際の個数と異なる場合があります・最終更新{" "}
-              {new Date(shelfCount.updatedAt).toLocaleTimeString("ja-JP", {
+              販売記録にもとづく残りの数です・最終更新{" "}
+              {shelfUpdatedAt?.toLocaleTimeString("ja-JP", {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
