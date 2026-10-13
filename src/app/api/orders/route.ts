@@ -6,10 +6,10 @@ import {
   getAvailableTimeSlots,
   getReservableDate,
   isBread,
-  STAMPS_PER_CARD,
   toJstDateString,
 } from "@/lib/utils";
 import { getAvailability, releaseOverdueReservations } from "@/lib/availability";
+import { grantStamps } from "@/lib/stamps";
 
 const PAYMENT_METHODS = ["cash", "cashless"];
 
@@ -172,25 +172,18 @@ export async function POST(request: NextRequest) {
     });
 
     // スタンプの加算
-    // 1日1回の注文で1個。中身は問わない。パンを3個以上買うとさらに1個。
+    // 1日1回の注文で1個。中身は問わない。
+    // さらに「この注文1回で」パンを3個以上買っていれば1個。累計ではない。
     const today = getTodayString();
     const yesterday = getYesterdayString();
 
-    const breadTotal = items.reduce((sum, item) => {
+    const breadInThisOrder = items.reduce((sum, item) => {
       const p = productMap.get(item.productId);
       return p && isBread(p) ? sum + item.quantity : sum;
     }, 0);
-    const bonusStamp = breadTotal >= BREAD_BONUS_THRESHOLD ? 1 : 0;
+    const bonusStamp = breadInThisOrder >= BREAD_BONUS_THRESHOLD ? 1 : 0;
 
     const isNewDay = stampCard ? stampCard.lastOrderDate !== today : true;
-    const stampsToAdd = (isNewDay ? 1 : 0) + bonusStamp;
-    const rawStamps = (stampCard?.stamps ?? 0) + stampsToAdd;
-
-    // 満了したら新しいカードに切り替える。1回の注文で2枚満了することは
-    // まずないが、繰り上がりが残らないよう割り算で処理する。
-    const completedNow = Math.floor(rawStamps / STAMPS_PER_CARD);
-    const newStamps = rawStamps % STAMPS_PER_CARD;
-
     const newStreak = !stampCard
       ? 1
       : isNewDay
@@ -199,33 +192,11 @@ export async function POST(request: NextRequest) {
         : 1
       : stampCard.streak;
 
-    await db.stampCard.upsert({
-      where: { nickname },
-      create: {
-        nickname,
-        stamps: newStamps,
-        totalOrders: 1,
-        streak: 1,
-        lastOrderDate: today,
-      },
-      update: {
-        stamps: newStamps,
-        totalOrders: { increment: 1 },
-        streak: newStreak,
-        lastOrderDate: isNewDay ? today : stampCard!.lastOrderDate,
-      },
+    const { completedNow } = await grantStamps(nickname, (isNewDay ? 1 : 0) + bonusStamp, {
+      lastOrderDate: isNewDay ? today : stampCard?.lastOrderDate,
+      streak: newStreak,
+      countsAsOrder: true,
     });
-
-    // 満了したカードは1枚ずつ残す。お客様が製作者に見せるための記録。
-    if (completedNow > 0) {
-      const already = await db.stampCardCompletion.count({ where: { nickname } });
-      await db.stampCardCompletion.createMany({
-        data: Array.from({ length: completedNow }, (_, i) => ({
-          nickname,
-          cardNumber: already + i + 1,
-        })),
-      });
-    }
 
     return NextResponse.json({ ...order, completedCards: completedNow }, { status: 201 });
   } catch (error) {

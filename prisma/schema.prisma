@@ -152,6 +152,8 @@ model StampCard {
   totalOrders   Int                   @default(0)
   streak        Int                   @default(0)
   lastOrderDate String                @default("")
+  // ご意見でスタンプを押した日。1日1回までにするための控え。
+  lastOpinionDate String              @default("")
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
   completions   StampCardCompletion[]

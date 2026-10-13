@@ -373,7 +373,16 @@ export default function MyPage() {
           )}
         </div>
 
-        <OpinionBox />
+        <OpinionBox
+          nickname={user.nickname}
+          onStampGranted={() => {
+            // 押されたスタンプがその場で反映されるよう、カードを取り直す
+            fetch(`/api/stamp?nickname=${encodeURIComponent(user.nickname)}`)
+              .then((r) => r.json())
+              .then(setCard)
+              .catch(() => {});
+          }}
+        />
 
         {/* Rules */}
         <div className="bg-[#f5f0eb] rounded-2xl p-4 text-xs text-[#6b5e52]">
