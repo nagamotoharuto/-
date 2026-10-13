@@ -22,6 +22,8 @@ export default function TimePage() {
   // Exactly one sale date takes reservations at a time: today's until the
   // counter closes, then the next business day's.
   const [selectedDate, setSelectedDate] = useState(() => getReservableDate());
+  // 臨時の営業終了はサーバーしか知らないので、受付中の日付を聞きに行く
+  const [closedToday, setClosedToday] = useState(false);
   const [selectedTime, setSelectedTime] = useState(pickupTime);
   const [error, setError] = useState("");
 
@@ -31,22 +33,36 @@ export default function TimePage() {
 
   // Roll over to the next sale date the moment the current one closes
   useEffect(() => {
-    const id = setInterval(() => {
-      setSelectedDate((current) => {
-        const next = getReservableDate();
-        if (next === current) return current;
-        setSelectedTime("");
-        return next;
-      });
-    }, 30_000);
-    return () => clearInterval(id);
+    let cancelled = false;
+
+    function sync() {
+      fetch("/api/business-status")
+        .then((r) => r.json())
+        .then((data) => {
+          if (cancelled || !data.reservableDate) return;
+          setClosedToday(Boolean(data.closedToday));
+          setSelectedDate((current) => {
+            if (data.reservableDate === current) return current;
+            setSelectedTime("");
+            return data.reservableDate;
+          });
+        })
+        .catch(() => {});
+    }
+
+    sync();
+    const id = setInterval(sync, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, []);
 
   if (!user) return null;
 
   const timeSlots = selectedDate ? getAvailableTimeSlots(selectedDate) : [];
   const isToday = selectedDate === toJstDateString();
-  const counterOpen = isWithinSalesHours();
+  const counterOpen = isWithinSalesHours() && !closedToday;
 
   function handleNext() {
     if (!selectedDate) {
@@ -73,6 +89,8 @@ export default function TimePage() {
         <p className="text-xs text-[#6b5e52] mb-6">
           {isToday
             ? "本日分のご予約を受付中です。本日の営業終了後、次の営業日分の受付を開始します。"
+            : closedToday
+            ? "本日の営業は終了しました。次の営業日分のご予約を受付中です。"
             : "本日の営業は終了しました。次の営業日分のご予約を受付中です。"}
         </p>
 

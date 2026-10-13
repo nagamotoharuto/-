@@ -366,8 +366,9 @@ export default function InventoryPage() {
             </button>
           </div>
           <p className="text-[11px] text-[#6b5e52] mt-1.5">
-            ドリンクとお菓子は「前の営業日から」、パンは曜日で決まっているので「先週の同じ曜日から」が合います。
-            写したあとに違う商品だけ直してください。
+            <strong className="text-[#8B1A2C]">ドリンクとお菓子は前回の数を自動で引き継ぎます。</strong>
+            入力し直す必要はありません。数を変えたい日だけ直してください。
+            パンは曜日で決まっているので「先週の同じ曜日から」で写せます。
           </p>
 
           {notice && (

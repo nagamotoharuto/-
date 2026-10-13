@@ -144,16 +144,17 @@ export function getPreviousBusinessDay(date: Date = new Date()): string {
  * staff have finished deciding that day's line-up. Reservations therefore run
  * through the night and across the weekend, unlike the counter itself.
  */
-export function getReservableDate(now: Date = new Date()): string {
+export function getReservableDate(now: Date = new Date(), closedToday = false): string {
   const today = toJstDateString(now);
-  if (isBusinessDay(now) && getAvailableTimeSlots(today, now).length > 0) {
+  // 臨時に店じまいした日は、時間が残っていても受付を次の営業日へ進める
+  if (!closedToday && isBusinessDay(now) && getAvailableTimeSlots(today, now).length > 0) {
     return today;
   }
   return getNextBusinessDay(now);
 }
 
-export function getReservableDates(now: Date = new Date()): string[] {
-  return [getReservableDate(now)];
+export function getReservableDates(now: Date = new Date(), closedToday = false): string[] {
+  return [getReservableDate(now, closedToday)];
 }
 
 export function formatJstDateLabel(isoDate: string, now: Date = new Date()): string {

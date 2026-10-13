@@ -4,6 +4,7 @@ import {
   getReleaseDeadline,
   getReservableQty,
   getWalkInSharePercent,
+  toJstDateString,
 } from "@/lib/utils";
 
 // Statuses that still hold a reservation slot. "cancelled" and "released"
@@ -73,6 +74,64 @@ export async function releaseOverdueReservations(now: Date = new Date()): Promis
   const result = await db.order.updateMany({
     where: { id: { in: overdueIds }, status: { in: [...RELEASABLE_STATUSES] } },
     data: { status: "released", releasedAt: now },
+  });
+  return result.count;
+}
+
+/** 毎日ほぼ同じ品揃えで、前日の発注数をそのまま引き継ぐ売り場かどうか。 */
+function carriesOver(p: { category: string; subCategory: string }): boolean {
+  return p.category === "drink" || p.subCategory === "sweets";
+}
+
+// 遡って探す上限。これより前の発注数は参考にしない。
+const CARRY_OVER_LOOKBACK_DAYS = 60;
+
+/**
+ * ドリンクとお菓子の発注数を前回から引き継ぐ。
+ *
+ * この2つはほぼ毎日同じ数を出すため、販売日ごとに入力させると手間が
+ * かかるだけになる。まだ決めていない日は、直近で入れた数をそのまま置く。
+ *
+ * 行を実際に作るのは、閉店処理や売上集計が DailyStock の行を前提に
+ * しているため。過去の日付は履歴なので触らない。
+ */
+export async function ensureCarryOver(date: string): Promise<number> {
+  if (date < toJstDateString()) return 0;
+
+  const products = await db.product.findMany({
+    where: { OR: [{ category: "drink" }, { subCategory: "sweets" }] },
+    select: { id: true },
+  });
+  if (products.length === 0) return 0;
+
+  const ids = products.map((p) => p.id);
+  const existing = await db.dailyStock.findMany({
+    where: { date, productId: { in: ids } },
+    select: { productId: true },
+  });
+  const done = new Set(existing.map((e) => e.productId));
+  const missing = ids.filter((id) => !done.has(id));
+  if (missing.length === 0) return 0;
+
+  const since = toJstDateString(
+    new Date(new Date(`${date}T00:00:00+09:00`).getTime() - CARRY_OVER_LOOKBACK_DAYS * 86400_000)
+  );
+  const past = await db.dailyStock.findMany({
+    where: { productId: { in: missing }, date: { gte: since, lt: date }, plannedQty: { gt: 0 } },
+    orderBy: { date: "desc" },
+    select: { productId: true, plannedQty: true },
+  });
+
+  // 同じ商品が複数日ぶん返るので、いちばん新しい日の数だけ採る
+  const latest = new Map<string, number>();
+  for (const row of past) {
+    if (!latest.has(row.productId)) latest.set(row.productId, row.plannedQty);
+  }
+  if (latest.size === 0) return 0;
+
+  const result = await db.dailyStock.createMany({
+    data: [...latest].map(([productId, plannedQty]) => ({ productId, date, plannedQty })),
+    skipDuplicates: true,
   });
   return result.count;
 }

@@ -8,7 +8,8 @@ import {
   isBread,
   toJstDateString,
 } from "@/lib/utils";
-import { getAvailability, releaseOverdueReservations } from "@/lib/availability";
+import { ensureCarryOver, getAvailability, releaseOverdueReservations } from "@/lib/availability";
+import { isClosedToday } from "@/app/api/business-status/route";
 import { grantStamps } from "@/lib/stamps";
 
 const PAYMENT_METHODS = ["cash", "cashless"];
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
     // Exactly one sale date takes reservations at a time: today's until the
     // counter closes, then the next business day's. Reservations themselves are
     // accepted around the clock, including after hours and over the weekend.
-    if (pickupDate !== getReservableDate()) {
+    if (pickupDate !== getReservableDate(new Date(), await isClosedToday())) {
       return NextResponse.json(
         { error: "その日付は現在ご予約いただけません。受け取り日を選び直してください" },
         { status: 400 }
@@ -81,6 +82,7 @@ export async function POST(request: NextRequest) {
 
     // Hand back any no-show reservations first so their slots count as free here
     await releaseOverdueReservations();
+    await ensureCarryOver(pickupDate);
 
     const productIds = items.map((i) => i.productId);
     const products = await db.product.findMany({ where: { id: { in: productIds } } });

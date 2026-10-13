@@ -70,10 +70,13 @@ export default function MenuPage() {
     // without a manual refresh, and send the customer back to step 1 once the
     // sale date they picked stops taking reservations.
     const id = setInterval(() => {
-      if (getReservableDate() !== pickupDate) {
-        router.push("/time");
-        return;
-      }
+      // 臨時の営業終了でも受付日が変わるので、サーバーに確認する
+      fetch("/api/business-status")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.reservableDate && data.reservableDate !== pickupDate) router.push("/time");
+        })
+        .catch(() => {});
       loadAvailability();
     }, 5000);
     return () => clearInterval(id);

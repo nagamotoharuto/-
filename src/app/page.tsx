@@ -18,7 +18,6 @@ import BottomNav from "@/components/features/BottomNav";
 import {
   formatJstDateLabel,
   getReservableDate,
-  isWithinSalesHours,
   WEEKLY_MENU_ENABLED,
 } from "@/lib/utils";
 
@@ -36,15 +35,29 @@ export default function HomePage() {
   const [email, setEmail] = useState(user?.email ?? "");
   const [userType, setUserType] = useState(user?.userType ?? "student");
   const [error, setError] = useState("");
-  const [storeOpen, setStoreOpen] = useState(() => isWithinSalesHours());
+  const [storeOpen, setStoreOpen] = useState(false);
   const [reservableDate, setReservableDate] = useState(() => getReservableDate());
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setStoreOpen(isWithinSalesHours());
-      setReservableDate(getReservableDate());
-    }, 30_000);
-    return () => clearInterval(id);
+    let cancelled = false;
+
+    function sync() {
+      fetch("/api/business-status")
+        .then((r) => r.json())
+        .then((data) => {
+          if (cancelled) return;
+          setStoreOpen(Boolean(data.counterOpen));
+          if (data.reservableDate) setReservableDate(data.reservableDate);
+        })
+        .catch(() => {});
+    }
+
+    sync();
+    const id = setInterval(sync, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, []);
 
   function handleStart() {
