@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, MessageSquarePlus, Send } from "lucide-react";
+import { Check, MessageSquarePlus, Send, Star } from "lucide-react";
 import {
   cn,
   OPINION_CATEGORIES,
@@ -15,12 +15,19 @@ import {
  * 名前もメールも送らない。誰が書いたか分からないからこそ本音が出るので、
  * 匿名であることを画面にも明記している。
  */
-export default function OpinionBox() {
+export default function OpinionBox({
+  nickname,
+  onStampGranted,
+}: {
+  nickname?: string;
+  onStampGranted?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState<string>("product");
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [stampAdded, setStampAdded] = useState(false);
   const [error, setError] = useState("");
 
   async function submit() {
@@ -35,17 +42,20 @@ export default function OpinionBox() {
       const res = await fetch("/api/opinions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category, body: trimmed }),
+        // 名前はお礼のスタンプを押すためだけに送る。ご意見の記録には残らない。
+        body: JSON.stringify({ category, body: trimmed, nickname }),
       });
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
         setError(data.error ?? "送信に失敗しました");
         return;
       }
       setText("");
       setSent(true);
+      setStampAdded(Boolean(data.stampAdded));
       setOpen(false);
-      setTimeout(() => setSent(false), 4000);
+      if (data.stampAdded) onStampGranted?.();
+      setTimeout(() => setSent(false), 6000);
     } catch {
       setError("通信エラーが発生しました");
     } finally {
@@ -70,15 +80,24 @@ export default function OpinionBox() {
       </button>
 
       {sent && (
-        <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-xl px-3 py-2.5 mt-3 text-sm font-bold">
-          <Check size={16} className="flex-shrink-0" />
-          送信しました。ありがとうございます
+        <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-3 py-2.5 mt-3">
+          <p className="flex items-center gap-2 text-sm font-bold">
+            <Check size={16} className="flex-shrink-0" />
+            送信しました。ありがとうございます
+          </p>
+          <p className="flex items-center gap-1.5 text-xs mt-1.5">
+            <Star size={13} className="flex-shrink-0 fill-current" />
+            {stampAdded
+              ? "お礼にスタンプを1個お押ししました"
+              : "スタンプは1日1個までです。また明日お聞かせください"}
+          </p>
         </div>
       )}
 
       {!open && !sent && (
         <p className="text-xs text-[#6b5e52] mt-2">
           取り扱ってほしい商品や、アプリへの要望をお聞かせください。匿名で届きます。
+          お礼にスタンプを1個お押しします（1日1個まで）。
         </p>
       )}
 

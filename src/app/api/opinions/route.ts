@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { OPINION_CATEGORIES, OPINION_MAX_LENGTH } from "@/lib/utils";
+import { grantStamps } from "@/lib/stamps";
+import { OPINION_CATEGORIES, OPINION_MAX_LENGTH, toJstDateString } from "@/lib/utils";
 
 /** スタッフ向け。新しい順にまとめて返す。 */
 export async function GET() {
@@ -17,13 +18,21 @@ export async function GET() {
 /**
  * お客様からの投稿。
  *
- * 匿名で受け取るため、名前もメールも区分も保存しない。送信元を辿れる
- * ものを持たないことで、率直に書いてもらえるようにしている。
+ * ご意見そのものは匿名で、名前も区分も保存しない。送信元を辿れるものを
+ * 持たないことで率直に書いてもらえるようにしている。
+ *
+ * お礼のスタンプを押すために名前だけは受け取るが、スタンプカードを更新
+ * するのに使うだけで、ご意見の行には残さない。あとから突き合わせて誰が
+ * 書いたかを調べることはできない。
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { category, body: text } = body as { category?: string; body?: string };
+    const { category, body: text, nickname } = body as {
+      category?: string;
+      body?: string;
+      nickname?: string;
+    };
 
     const trimmed = (text ?? "").trim();
     if (!trimmed) {
@@ -42,8 +51,23 @@ export async function POST(request: NextRequest) {
 
     await db.opinion.create({ data: { category: safeCategory, body: trimmed } });
 
+    // お礼のスタンプは1日1回まで。何度も送って際限なく増やせないようにする。
+    let stampAdded = false;
+    let completedCards = 0;
+    const name = (nickname ?? "").trim();
+
+    if (name) {
+      const today = toJstDateString();
+      const card = await db.stampCard.findUnique({ where: { nickname: name } });
+      if (card?.lastOpinionDate !== today) {
+        const result = await grantStamps(name, 1, { lastOpinionDate: today });
+        stampAdded = true;
+        completedCards = result.completedNow;
+      }
+    }
+
     // 本文は返さない。投稿後に自分の送信内容が残る画面を作らないため。
-    return NextResponse.json({ ok: true }, { status: 201 });
+    return NextResponse.json({ ok: true, stampAdded, completedCards }, { status: 201 });
   } catch (error) {
     console.error("POST /api/opinions error:", error);
     return NextResponse.json({ error: "送信に失敗しました" }, { status: 500 });
