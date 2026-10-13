@@ -14,6 +14,7 @@ import {
   Save,
   ToggleLeft,
   ToggleRight,
+  Trash2,
   X,
 } from "lucide-react";
 import StaffHeader from "@/components/features/StaffHeader";
@@ -90,6 +91,7 @@ export default function InventoryPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [brokenThumbs, setBrokenThumbs] = useState<Record<string, boolean>>({});
 
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newProduct, setNewProduct] = useState(EMPTY_NEW);
   const [addError, setAddError] = useState("");
@@ -247,6 +249,26 @@ export default function InventoryPage() {
       });
       setOpenId(null);
       setBrokenThumbs((prev) => ({ ...prev, [item.id]: false }));
+      setReloadKey((k) => k + 1);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** 記録が残っている商品はサーバー側で拒否されるので、ここでは結果を伝えるだけ。 */
+  async function deleteProduct(item: Item) {
+    setBusy(item.id);
+    setError("");
+    try {
+      const res = await fetch(`/api/products/${item.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error ?? "削除に失敗しました");
+        setConfirmDelete(null);
+        return;
+      }
+      setConfirmDelete(null);
+      setOpenId(null);
       setReloadKey((k) => k + 1);
     } finally {
       setBusy(null);
@@ -555,6 +577,47 @@ export default function InventoryPage() {
                               <Save size={15} />
                               {busy === item.id ? "保存中..." : "保存"}
                             </button>
+
+                            {/* 削除。押し間違いで消えないよう一度確認を挟む。 */}
+                            <div className="border-t border-[#e8e0d8] pt-3 mt-1">
+                              {confirmDelete === item.id ? (
+                                <div className="flex flex-col gap-2">
+                                  <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                                    「{item.name}」を削除します。元に戻せません。よろしいですか？
+                                  </p>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => setConfirmDelete(null)}
+                                      className="flex-1 border border-[#e8e0d8] text-[#6b5e52] rounded-xl py-2.5 text-sm font-bold hover:bg-[#f5f0eb] transition-colors"
+                                    >
+                                      やめる
+                                    </button>
+                                    <button
+                                      onClick={() => deleteProduct(item)}
+                                      disabled={busy === item.id}
+                                      className="flex-1 bg-red-600 text-white rounded-xl py-2.5 text-sm font-bold hover:bg-red-700 disabled:opacity-50 transition-colors"
+                                    >
+                                      {busy === item.id ? "削除中..." : "削除する"}
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setConfirmDelete(item.id);
+                                    setError("");
+                                  }}
+                                  className="flex items-center justify-center gap-1.5 w-full border border-red-200 text-red-600 rounded-xl py-2.5 text-sm font-bold hover:bg-red-50 transition-colors"
+                                >
+                                  <Trash2 size={15} />
+                                  この商品を削除
+                                </button>
+                              )}
+                              <p className="text-[10px] text-[#6b5e52] mt-1.5 leading-relaxed">
+                                販売や予約の記録がある商品は削除できません。その場合は
+                                「販売中」を切り替えて停止中にしてください。
+                              </p>
+                            </div>
                           </div>
                         )}
                       </div>

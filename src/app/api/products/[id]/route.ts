@@ -87,3 +87,65 @@ export async function PATCH(
     );
   }
 }
+
+/**
+ * 商品を削除する。
+ *
+ * 削除すると発注数(DailyStock)と飛び込み販売(WalkInSale)の記録も一緒に消え、
+ * 予約明細があるものはDBの制約で削除できない。研究データを欠損させないため、
+ * 一度でも売れた・予約された商品は消さず、販売停止にするよう促す。
+ */
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    const product = await db.product.findUnique({ where: { id } });
+    if (!product) {
+      return NextResponse.json({ error: "商品が見つかりません" }, { status: 404 });
+    }
+
+    const [orderItems, walkInSales, dailyStocks] = await Promise.all([
+      db.orderItem.count({ where: { productId: id } }),
+      db.walkInSale.count({ where: { productId: id } }),
+      db.dailyStock.count({ where: { productId: id, plannedQty: { gt: 0 } } }),
+    ]);
+
+    if (orderItems > 0 || walkInSales > 0) {
+      return NextResponse.json(
+        {
+          error:
+            `「${product.name}」は販売の記録が残っているため削除できません。` +
+            `「販売中」を切り替えて停止中にしてください`,
+        },
+        { status: 409 }
+      );
+    }
+
+    if (dailyStocks > 0) {
+      return NextResponse.json(
+        {
+          error:
+            `「${product.name}」は発注数が入っている日があります。` +
+            `先にその日の発注数を0にしてから削除してください`,
+        },
+        { status: 409 }
+      );
+    }
+
+    // 写真はDBに置いてあるので、商品と一緒に片付ける
+    const imageId = product.imageUrl.match(/^\/api\/images\/([0-9a-z]+)$/i)?.[1];
+
+    await db.product.delete({ where: { id } });
+    if (imageId) {
+      await db.productImage.deleteMany({ where: { id: imageId } });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("DELETE /api/products/[id] error:", error);
+    return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
+  }
+}
