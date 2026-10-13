@@ -12,6 +12,8 @@ import {
   Sparkles,
   Undo2,
   UserX,
+  DoorClosed,
+  Undo2 as UndoIcon,
 } from "lucide-react";
 import StaffHeader from "@/components/features/StaffHeader";
 import {
@@ -99,6 +101,9 @@ export default function TodayPage() {
   const [items, setItems] = useState<AvailabilityItem[]>([]);
   const [metrics, setMetrics] = useState<DayMetrics | null>(null);
   const [turnawayCount, setTurnawayCount] = useState<number | null>(null);
+  // 臨時の営業終了。15時を待たずに店じまいしたとき、新規予約を止める。
+  const [closedToday, setClosedToday] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -128,16 +133,18 @@ export default function TodayPage() {
   /** 画面の数字をまとめて取り直す。読み込み中の表示は出さないのでちらつかない。 */
   const refresh = useCallback(async () => {
     try {
-      const [ordersRes, availRes, metricsRes, turnawayRes] = await Promise.all([
+      const [ordersRes, availRes, metricsRes, turnawayRes, statusRes] = await Promise.all([
         fetch("/api/orders").then((r) => r.json()),
         fetch(`/api/daily-stock?date=${today}`).then((r) => r.json()),
         fetch(`/api/metrics?from=${today}&to=${today}`).then((r) => r.json()),
         fetch("/api/turnaway").then((r) => r.json()),
+        fetch("/api/business-status").then((r) => r.json()),
       ]);
       applyOrders(Array.isArray(ordersRes) ? ordersRes : []);
       setItems(Array.isArray(availRes.items) ? availRes.items : []);
       setMetrics(metricsRes.days?.[0] ?? null);
       setTurnawayCount(turnawayRes.count ?? 0);
+      setClosedToday(Boolean(statusRes.closedToday));
     } catch {
       // 次の定期取得で追いつく
     } finally {
@@ -159,13 +166,15 @@ export default function TodayPage() {
         fetch(`/api/daily-stock?date=${today}`).then((r) => r.json()),
         fetch(`/api/metrics?from=${today}&to=${today}`).then((r) => r.json()),
         fetch("/api/turnaway").then((r) => r.json()),
+        fetch("/api/business-status").then((r) => r.json()),
       ])
-        .then(([ordersRes, availRes, metricsRes, turnawayRes]) => {
+        .then(([ordersRes, availRes, metricsRes, turnawayRes, statusRes]) => {
           if (cancelled) return;
           applyOrders(Array.isArray(ordersRes) ? ordersRes : []);
           setItems(Array.isArray(availRes.items) ? availRes.items : []);
           setMetrics(metricsRes.days?.[0] ?? null);
           setTurnawayCount(turnawayRes.count ?? 0);
+          setClosedToday(Boolean(statusRes.closedToday));
         })
         .catch(() => {})
         .finally(() => {
@@ -243,6 +252,25 @@ export default function TodayPage() {
         { method: "DELETE" }
       );
       await refresh();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  /** 臨時の営業終了。新規予約を止め、受付を次の営業日へ進める。 */
+  async function setClosed(closed: boolean) {
+    setBusyId("closure");
+    try {
+      const res = closed
+        ? await fetch("/api/business-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date: today }),
+          })
+        : await fetch(`/api/business-status?date=${today}`, { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok) setClosedToday(Boolean(data.closedToday));
+      setConfirmClose(false);
     } finally {
       setBusyId(null);
     }
@@ -340,6 +368,78 @@ export default function TodayPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* 臨時の営業終了 */}
+          <div
+            className={cn(
+              "rounded-2xl border p-3 mt-3",
+              closedToday ? "bg-[#fff8ee] border-[#F0AA5A]" : "bg-white border-[#e8e0d8]"
+            )}
+          >
+            {closedToday ? (
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[#8B1A2C] flex items-center gap-1.5">
+                    <DoorClosed size={15} />
+                    本日の営業は終了しています
+                  </p>
+                  <p className="text-xs text-[#6b5e52] mt-0.5">
+                    新しい予約は次の営業日分として受け付けています
+                  </p>
+                </div>
+                <button
+                  onClick={() => setClosed(false)}
+                  disabled={busyId === "closure"}
+                  className="flex items-center gap-1 flex-shrink-0 border border-[#e8e0d8] bg-white text-[#6b5e52] rounded-xl px-3 h-9 text-xs font-bold hover:bg-[#f5f0eb] disabled:opacity-50 transition-colors"
+                >
+                  <UndoIcon size={13} />
+                  営業中に戻す
+                </button>
+              </div>
+            ) : confirmClose ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs text-[#1a1a1a]">
+                  本日の営業を終了します。<strong>新しい予約を受け付けなくなり</strong>、
+                  お客様には次の営業日分が案内されます。
+                  <br />
+                  すでに入っている予約は消えません。ご来店があれば渡すか、解放して店頭に戻してください。
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setConfirmClose(false)}
+                    className="flex-1 border border-[#e8e0d8] text-[#6b5e52] rounded-xl py-2.5 text-sm font-bold hover:bg-[#f5f0eb] transition-colors"
+                  >
+                    やめる
+                  </button>
+                  <button
+                    onClick={() => setClosed(true)}
+                    disabled={busyId === "closure"}
+                    className="flex-1 bg-[#8B1A2C] text-white rounded-xl py-2.5 text-sm font-bold hover:bg-[#A52235] disabled:opacity-50 transition-colors"
+                  >
+                    営業を終了する
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[#1a1a1a] flex items-center gap-1.5">
+                    <DoorClosed size={15} className="text-[#8B1A2C]" />
+                    臨時で営業を終了する
+                  </p>
+                  <p className="text-xs text-[#6b5e52] mt-0.5">
+                    早じまいするとき。新しい予約を止めます
+                  </p>
+                </div>
+                <button
+                  onClick={() => setConfirmClose(true)}
+                  className="flex-shrink-0 border border-[#8B1A2C] text-[#8B1A2C] bg-white rounded-xl px-4 h-9 text-xs font-bold hover:bg-[#8B1A2C] hover:text-white transition-colors"
+                >
+                  終了する
+                </button>
+              </div>
+            )}
           </div>
 
           {/* 売り切れで断った人数 */}

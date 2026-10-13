@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAvailability, releaseOverdueReservations } from "@/lib/availability";
+import { ensureCarryOver, getAvailability, releaseOverdueReservations } from "@/lib/availability";
 import { getReservableDates } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
 
     // Free up no-show slots first so the menu shows what is genuinely bookable
     await releaseOverdueReservations();
+    // ドリンクとお菓子は前回の数をそのまま引き継ぐ
+    await ensureCarryOver(date);
 
     const items = await getAvailability(date);
     return NextResponse.json({

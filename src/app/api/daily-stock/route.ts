@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAvailability, syncSoldOutAt } from "@/lib/availability";
+import { ensureCarryOver, getAvailability, syncSoldOutAt } from "@/lib/availability";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
     if (!date || !DATE_RE.test(date)) {
       return NextResponse.json({ error: "date (YYYY-MM-DD) が必要です" }, { status: 400 });
     }
+
+    // ドリンクとお菓子は前回の数をそのまま引き継ぐ
+    await ensureCarryOver(date);
 
     return NextResponse.json({ date, items: await getAvailability(date) });
   } catch (error) {

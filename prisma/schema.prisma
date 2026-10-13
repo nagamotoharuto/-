@@ -131,6 +131,14 @@ model WalkInSale {
 
 // お客様からのご意見。誰が送ったかは残さない。
 // 名前もメールも受け取らないので、スタッフ側からも送り主は分からない。
+// 臨時の営業終了。15時を待たずに店じまいした日を記録する。
+// その日の新規予約を止め、受付を次の営業日へ進めるために使う。
+model BusinessClosure {
+  id       String   @id @default(cuid())
+  date     String   @unique // 販売日 "YYYY-MM-DD" (JST)
+  closedAt DateTime @default(now())
+}
+
 model Opinion {
   id        String    @id @default(cuid())
   // product | feature | other
