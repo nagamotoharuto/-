@@ -271,6 +271,10 @@ export const BREAD_ORDER_LIMIT = 3;
 // この個数以上のパンを買うと、スタンプがもう1個もらえる
 export const BREAD_BONUS_THRESHOLD = 3;
 
+// 今週のパンの献立表を公開するか。
+// 曜日ごとの品揃えが固まるまでは準備中として見せ、運用が始まったら true にする。
+export const WEEKLY_MENU_ENABLED = false;
+
 // ---- 売り場の区分 ----
 
 // 売り場は food / drink / goods の3つ。パンとお菓子はどちらも food で、

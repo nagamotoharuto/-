@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, CalendarDays } from "lucide-react";
 import BottomNav from "@/components/features/BottomNav";
-import { cn, formatPrice } from "@/lib/utils";
+import { cn, formatPrice, WEEKLY_MENU_ENABLED } from "@/lib/utils";
 
 interface MenuItem {
   id: string;
@@ -34,9 +34,11 @@ const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
  */
 export default function WeeklyPage() {
   const [days, setDays] = useState<MenuDay[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(WEEKLY_MENU_ENABLED);
 
   useEffect(() => {
+    if (!WEEKLY_MENU_ENABLED) return;
+
     let cancelled = false;
 
     fetch("/api/weekly-menu")
@@ -77,11 +79,17 @@ export default function WeeklyPage() {
       </header>
 
       <div className="max-w-md mx-auto w-full px-4 py-4 flex-1">
-        <p className="text-xs text-[#6b5e52] mb-3">
-          曜日ごとに並ぶパンが変わります。仕入れの都合で変更になる場合があります。
-        </p>
-
-        {loading ? (
+        {!WEEKLY_MENU_ENABLED ? (
+          <div className="bg-white border border-[#e8e0d8] rounded-2xl px-5 py-12 text-center">
+            <CalendarDays size={32} className="mx-auto text-[#e8e0d8] mb-3" />
+            <p className="text-sm font-bold text-[#1a1a1a] mb-1">ただいま準備中です</p>
+            <p className="text-xs text-[#6b5e52] leading-relaxed">
+              曜日ごとに並ぶパンを一覧でお見せできるよう準備しています。
+              <br />
+              近日公開しますので、もうしばらくお待ちください。
+            </p>
+          </div>
+        ) : loading ? (
           <div className="h-64 bg-white rounded-2xl border border-[#e8e0d8] animate-pulse" />
         ) : rows.length === 0 ? (
           <p className="text-center text-sm text-[#6b5e52] bg-white border border-[#e8e0d8] rounded-2xl py-12">
