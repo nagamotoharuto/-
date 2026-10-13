@@ -15,7 +15,12 @@ import {
 } from "lucide-react";
 import { useBakeryStore } from "@/lib/store";
 import BottomNav from "@/components/features/BottomNav";
-import { formatJstDateLabel, getReservableDate, isWithinSalesHours } from "@/lib/utils";
+import {
+  formatJstDateLabel,
+  getReservableDate,
+  isWithinSalesHours,
+  WEEKLY_MENU_ENABLED,
+} from "@/lib/utils";
 
 const USER_TYPES = [
   { value: "student", label: "学生" },
@@ -107,20 +112,35 @@ export default function HomePage() {
           ))}
         </div>
 
-        {/* 今週のパン */}
-        <Link
-          href="/weekly"
-          className="flex items-center gap-3 bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-4 mb-3 hover:border-[#8B1A2C] transition-colors"
-        >
-          <div className="w-11 h-11 bg-[#8B1A2C] rounded-full flex items-center justify-center flex-shrink-0">
-            <CalendarDays size={20} className="text-white" />
+        {/* 今週のパン。準備中は押せる見た目にせず、予告だけ出す。 */}
+        {WEEKLY_MENU_ENABLED ? (
+          <Link
+            href="/weekly"
+            className="flex items-center gap-3 bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-4 mb-3 hover:border-[#8B1A2C] transition-colors"
+          >
+            <div className="w-11 h-11 bg-[#8B1A2C] rounded-full flex items-center justify-center flex-shrink-0">
+              <CalendarDays size={20} className="text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-[#1a1a1a]">今週のパンを見る</p>
+              <p className="text-xs text-[#6b5e52]">月〜金のどの日に何が並ぶか分かります</p>
+            </div>
+            <ArrowRight size={18} className="text-[#8B1A2C] flex-shrink-0" />
+          </Link>
+        ) : (
+          <div className="flex items-center gap-3 bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-4 mb-3 opacity-70">
+            <div className="w-11 h-11 bg-[#e8e0d8] rounded-full flex items-center justify-center flex-shrink-0">
+              <CalendarDays size={20} className="text-[#8d8073]" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-[#6b5e52]">今週のパン</p>
+              <p className="text-xs text-[#6b5e52]">ただいま準備中です。近日公開します</p>
+            </div>
+            <span className="text-[10px] font-bold text-[#6b5e52] bg-[#f5f0eb] border border-[#e8e0d8] px-2 py-1 rounded-full flex-shrink-0">
+              準備中
+            </span>
           </div>
-          <div className="flex-1">
-            <p className="text-sm font-bold text-[#1a1a1a]">今週のパンを見る</p>
-            <p className="text-xs text-[#6b5e52]">月〜金のどの日に何が並ぶか分かります</p>
-          </div>
-          <ArrowRight size={18} className="text-[#8B1A2C] flex-shrink-0" />
-        </Link>
+        )}
 
         {/* Live camera CTA */}
         <Link
