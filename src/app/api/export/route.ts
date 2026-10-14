@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getMetrics } from "@/lib/metrics";
-import { toJstDateString } from "@/lib/utils";
+import { OPINION_CATEGORY_LABELS, toJstDateString } from "@/lib/utils";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -70,6 +70,19 @@ export async function GET(request: NextRequest) {
         }
       }
       filename = `orders_${from}_${to}.csv`;
+    } else if (type === "opinions") {
+      const opinions = await db.opinion.findMany({ orderBy: { createdAt: "asc" } });
+
+      rows = [["届いた日時", "種類", "内容", "確認日時"]];
+      for (const o of opinions) {
+        rows.push([
+          jstDateTime(o.createdAt),
+          OPINION_CATEGORY_LABELS[o.category] ?? o.category,
+          o.body,
+          jstDateTime(o.readAt),
+        ]);
+      }
+      filename = `opinions_${from}_${to}.csv`;
     } else if (type === "walkin") {
       const sales = await db.walkInSale.findMany({
         where: { date: { gte: from, lte: to } },

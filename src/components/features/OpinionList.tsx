@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { MessageSquare, Check } from "lucide-react";
-import { cn, OPINION_CATEGORY_LABELS } from "@/lib/utils";
+import { Fragment, useEffect, useState } from "react";
+import { Check, Download, MessageSquare } from "lucide-react";
+import { cn, OPINION_CATEGORIES, OPINION_CATEGORY_LABELS } from "@/lib/utils";
 
 interface Opinion {
   id: string;
@@ -18,11 +18,31 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: "bg-gray-100 text-gray-600",
 };
 
+// 日本時間での日付でまとめる。サーバーの時刻帯に左右されないようにする。
+function dayKey(iso: string): string {
+  return new Date(iso).toLocaleDateString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+function dayLabel(iso: string): string {
+  return new Date(iso).toLocaleDateString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  });
+}
+
 /**
- * お客様から届いたご意見の一覧。
+ * 届いたご意見の記録。
  *
- * 匿名で受け取っているので、誰が書いたかは分からない。未読だけ色を変え、
- * 「読んだ」を押すとまとめて既読にする。
+ * 既読にしても消えず、届いた日ごとにまとめて残り続ける。あとから
+ * 読み返したり、研究の材料として書き出したりできるようにしている。
+ * 匿名で受け取っているので、誰が書いたかは分からない。
  */
 export default function OpinionList() {
   const [opinions, setOpinions] = useState<Opinion[]>([]);
@@ -30,7 +50,7 @@ export default function OpinionList() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [filter, setFilter] = useState<string>("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -62,7 +82,23 @@ export default function OpinionList() {
     }
   }
 
-  const shown = filter === "unread" ? opinions.filter((o) => !o.readAt) : opinions;
+  const shown =
+    filter === "all"
+      ? opinions
+      : filter === "unread"
+      ? opinions.filter((o) => !o.readAt)
+      : opinions.filter((o) => o.category === filter);
+
+  // 届いた日ごとにまとめる。新しい日が上。
+  const byDay = new Map<string, Opinion[]>();
+  for (const o of shown) {
+    const key = dayKey(o.createdAt);
+    const list = byDay.get(key) ?? [];
+    list.push(o);
+    byDay.set(key, list);
+  }
+
+  const countOf = (cat: string) => opinions.filter((o) => o.category === cat).length;
 
   return (
     <section>
@@ -76,26 +112,61 @@ export default function OpinionList() {
             </span>
           )}
         </h2>
-        {unread > 0 && (
-          <button
-            onClick={markAllRead}
-            disabled={busy}
-            className="flex items-center gap-1 text-xs font-bold text-[#8B1A2C] bg-white border border-[#e8e0d8] rounded-lg px-3 py-2 hover:border-[#8B1A2C] disabled:opacity-50 transition-colors"
-          >
-            <Check size={13} />
-            すべて読んだ
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {opinions.length > 0 && (
+            <a
+              href="/api/export?type=opinions"
+              className="flex items-center gap-1 text-xs font-bold text-[#8B1A2C] bg-white border border-[#e8e0d8] rounded-lg px-3 py-2 hover:border-[#8B1A2C] transition-colors"
+            >
+              <Download size={13} />
+              CSV
+            </a>
+          )}
+          {unread > 0 && (
+            <button
+              onClick={markAllRead}
+              disabled={busy}
+              className="flex items-center gap-1 text-xs font-bold text-[#8B1A2C] bg-white border border-[#e8e0d8] rounded-lg px-3 py-2 hover:border-[#8B1A2C] disabled:opacity-50 transition-colors"
+            >
+              <Check size={13} />
+              すべて読んだ
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="flex gap-2 mb-2">
+      {/* これまでに届いた総数と内訳。記録として積み上がっていることが分かるように。 */}
+      {opinions.length > 0 && (
+        <div className="bg-white border border-[#e8e0d8] rounded-2xl px-4 py-3 mb-2">
+          <div className="flex items-baseline gap-2 mb-1.5">
+            <span className="text-2xl font-black text-[#8B1A2C] tabular-nums">
+              {opinions.length}
+            </span>
+            <span className="text-xs text-[#6b5e52]">件のご意見が届いています</span>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#6b5e52]">
+            {OPINION_CATEGORIES.map((c) => (
+              <span key={c}>
+                {OPINION_CATEGORY_LABELS[c]}{" "}
+                <strong className="text-[#1a1a1a] tabular-nums">{countOf(c)}</strong>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2 mb-2">
         {[
           { value: "all", label: `すべて ${opinions.length}` },
           { value: "unread", label: `未読 ${unread}` },
+          ...OPINION_CATEGORIES.map((c) => ({
+            value: c,
+            label: `${OPINION_CATEGORY_LABELS[c]} ${countOf(c)}`,
+          })),
         ].map((f) => (
           <button
             key={f.value}
-            onClick={() => setFilter(f.value as "all" | "unread")}
+            onClick={() => setFilter(f.value)}
             className={cn(
               "px-3 py-1.5 rounded-full text-xs font-bold border transition-colors",
               filter === f.value
@@ -112,49 +183,63 @@ export default function OpinionList() {
         <div className="h-32 bg-white rounded-2xl border border-[#e8e0d8] animate-pulse" />
       ) : shown.length === 0 ? (
         <p className="text-center text-sm text-[#6b5e52] bg-white border border-[#e8e0d8] rounded-2xl py-8">
-          {filter === "unread" ? "未読のご意見はありません" : "まだご意見は届いていません"}
+          {opinions.length === 0
+            ? "まだご意見は届いていません"
+            : "この条件に当てはまるご意見はありません"}
         </p>
       ) : (
-        <div className="flex flex-col gap-2">
-          {shown.map((o) => (
-            <div
-              key={o.id}
-              className={cn(
-                "rounded-2xl border shadow-sm px-4 py-3",
-                o.readAt ? "bg-white border-[#e8e0d8]" : "bg-[#fff8ee] border-[#F0AA5A]"
-              )}
-            >
-              <div className="flex items-center gap-2 mb-1.5">
-                <span
+        <div className="flex flex-col gap-3">
+          {[...byDay.entries()].map(([day, items]) => (
+            <Fragment key={day}>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-[#8B1A2C]">{dayLabel(items[0].createdAt)}</span>
+                <span className="text-[10px] text-[#6b5e52]">{items.length}件</span>
+                <span className="flex-1 h-px bg-[#e8e0d8]" />
+              </div>
+
+              {items.map((o) => (
+                <div
+                  key={o.id}
                   className={cn(
-                    "text-[10px] font-bold px-2 py-0.5 rounded-full",
-                    CATEGORY_COLORS[o.category] ?? CATEGORY_COLORS.other
+                    "rounded-2xl border shadow-sm px-4 py-3",
+                    o.readAt ? "bg-white border-[#e8e0d8]" : "bg-[#fff8ee] border-[#F0AA5A]"
                   )}
                 >
-                  {OPINION_CATEGORY_LABELS[o.category] ?? o.category}
-                </span>
-                {!o.readAt && (
-                  <span className="text-[10px] font-black text-white bg-[#F0AA5A] rounded-full px-2 py-0.5">
-                    未読
-                  </span>
-                )}
-                <span className="text-[10px] text-[#6b5e52] ml-auto tabular-nums">
-                  {new Date(o.createdAt).toLocaleString("ja-JP", {
-                    month: "numeric",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </div>
-              <p className="text-sm text-[#1a1a1a] leading-relaxed whitespace-pre-wrap">{o.body}</p>
-            </div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                        CATEGORY_COLORS[o.category] ?? CATEGORY_COLORS.other
+                      )}
+                    >
+                      {OPINION_CATEGORY_LABELS[o.category] ?? o.category}
+                    </span>
+                    {!o.readAt && (
+                      <span className="text-[10px] font-black text-white bg-[#F0AA5A] rounded-full px-2 py-0.5">
+                        未読
+                      </span>
+                    )}
+                    <span className="text-[10px] text-[#6b5e52] ml-auto tabular-nums">
+                      {new Date(o.createdAt).toLocaleTimeString("ja-JP", {
+                        timeZone: "Asia/Tokyo",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                  <p className="text-sm text-[#1a1a1a] leading-relaxed whitespace-pre-wrap">
+                    {o.body}
+                  </p>
+                </div>
+              ))}
+            </Fragment>
           ))}
         </div>
       )}
 
       <p className="text-xs text-[#6b5e52] mt-2">
-        匿名で届くため、どなたが書いたかは分かりません。返信もできません。
+        既読にしても消えません。届いた日ごとに記録として残ります。
+        匿名で届くため、どなたが書いたかは分かりません。
       </p>
     </section>
   );
