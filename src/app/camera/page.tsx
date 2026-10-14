@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, Camera, RefreshCw, WifiOff, Croissant } from "lucide-react";
 import BottomNav from "@/components/features/BottomNav";
@@ -11,8 +11,13 @@ import { toJstDateString } from "@/lib/utils";
 // NOT the "/stream" (multipart/x-mixed-replace) endpoint: iOS/macOS Safari cannot render
 // multipart MJPEG in an <img>, so instead we poll a fresh single JPEG on an interval.
 const CAMERA_SNAPSHOT_URL = process.env.NEXT_PUBLIC_CAMERA_STREAM_URL;
+// 次の1枚を要求するまでの最短の間隔。カメラの応答が遅い日は、
+// これより長い間隔で届くことになる。
 const REFRESH_INTERVAL_MS = 1500;
+// この回数続けて失敗したら、映像を諦めて案内を出す
 const FAIL_THRESHOLD = 4;
+// 1枚にこれ以上かかったら、固まったとみなして取り直す
+const FRAME_TIMEOUT_MS = 45_000;
 // 棚の数はシステムが把握しているので、映像ほど頻繁に取り直す必要はない
 const SHELF_COUNT_INTERVAL_MS = 15_000;
 
@@ -29,18 +34,55 @@ export default function CameraPage() {
   const [failCount, setFailCount] = useState(0);
   const [shelf, setShelf] = useState<ShelfItem[] | null>(null);
   const [shelfUpdatedAt, setShelfUpdatedAt] = useState<Date | null>(null);
+  const [loadingFrame, setLoadingFrame] = useState(false);
+  // 1枚でも表示できたか。最初の1枚が届くまでは読み込み中を出す。
+  const [src1Loaded, setSrc1Loaded] = useState(false);
+
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const aliveRef = useRef(true);
+  // 見張り役から自分を呼び戻すための入れ物
+  const requestRef = useRef<() => void>(() => {});
+
+  /**
+   * 次の1枚を要求する。
+   *
+   * 一定間隔で貼り替えると、カメラの応答が1.5秒より遅いときに読み込みが
+   * 毎回打ち切られ、1枚も表示されないまま黒いままになる。前の1枚が
+   * 届いてから次を頼む形にして、遅いなりに映るようにしている。
+   */
+  const requestFrame = useCallback(() => {
+    if (!CAMERA_SNAPSHOT_URL || !aliveRef.current) return;
+    setLoadingFrame(true);
+    setSrc(`${CAMERA_SNAPSHOT_URL}?t=${Date.now()}`);
+
+    // 応答が返ってこないまま止まることがあるので、頃合いを見て取り直す
+    if (watchdogRef.current) clearTimeout(watchdogRef.current);
+    watchdogRef.current = setTimeout(() => {
+      if (!aliveRef.current) return;
+      setFailCount((c) => c + 1);
+      requestRef.current();
+    }, FRAME_TIMEOUT_MS);
+  }, []);
+
+  /** 1枚ぶんの読み込みが片付いたら、間を置いて次を頼む。 */
+  const scheduleNext = useCallback(() => {
+    if (watchdogRef.current) clearTimeout(watchdogRef.current);
+    setLoadingFrame(false);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(requestFrame, REFRESH_INTERVAL_MS);
+  }, [requestFrame]);
 
   useEffect(() => {
-    if (!CAMERA_SNAPSHOT_URL) return;
-
-    function refresh() {
-      setSrc(`${CAMERA_SNAPSHOT_URL}?t=${Date.now()}`);
-    }
-
-    refresh();
-    const id = setInterval(refresh, REFRESH_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, []);
+    aliveRef.current = true;
+    requestRef.current = requestFrame;
+    requestFrame();
+    return () => {
+      aliveRef.current = false;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (watchdogRef.current) clearTimeout(watchdogRef.current);
+    };
+  }, [requestFrame]);
 
   useEffect(() => {
     // 画面に出す個数は、店頭の残数（発注数 − 飛び込み販売 − 受け渡し済み）。
@@ -65,7 +107,7 @@ export default function CameraPage() {
 
   function retry() {
     setFailCount(0);
-    if (CAMERA_SNAPSHOT_URL) setSrc(`${CAMERA_SNAPSHOT_URL}?t=${Date.now()}`);
+    requestFrame();
   }
 
   const showError = failCount >= FAIL_THRESHOLD;
@@ -117,7 +159,19 @@ export default function CameraPage() {
             </button>
           </div>
         ) : (
-          <div className="rounded-2xl overflow-hidden border border-[#e8e0d8] shadow-sm bg-black min-h-[240px]">
+          <div className="relative rounded-2xl overflow-hidden border border-[#e8e0d8] shadow-sm bg-black min-h-[240px]">
+            {/* 1枚目が届くまで、黒いままで止まっているように見せない */}
+            {!src1Loaded && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/70">
+                <RefreshCw size={22} className="animate-spin" />
+                <span className="text-xs">映像を読み込んでいます…</span>
+              </div>
+            )}
+            {src1Loaded && loadingFrame && (
+              <span className="absolute top-2 right-2 z-10 text-[10px] text-white/80 bg-black/50 rounded-full px-2 py-0.5">
+                更新中
+              </span>
+            )}
             {/* Polled single-JPEG snapshot: works on every browser, including iOS Safari
                 (which cannot render a multipart/x-mixed-replace MJPEG stream in an <img>) */}
             {src && (
@@ -126,8 +180,15 @@ export default function CameraPage() {
                 src={src}
                 alt="パン棚のライブ映像"
                 className="w-full h-auto block"
-                onError={() => setFailCount((c) => c + 1)}
-                onLoad={() => setFailCount(0)}
+                onError={() => {
+                  setFailCount((c) => c + 1);
+                  scheduleNext();
+                }}
+                onLoad={() => {
+                  setFailCount(0);
+                  setSrc1Loaded(true);
+                  scheduleNext();
+                }}
               />
             )}
           </div>
