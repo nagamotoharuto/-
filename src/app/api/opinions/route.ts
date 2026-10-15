@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { grantStamps } from "@/lib/stamps";
-import { OPINION_CATEGORIES, OPINION_MAX_LENGTH, toJstDateString } from "@/lib/utils";
+import {
+  OPINION_CATEGORIES,
+  OPINION_MAX_LENGTH,
+  OPINION_SOURCES,
+  toJstDateString,
+} from "@/lib/utils";
 
 /** スタッフ向け。新しい順にまとめて返す。 */
 export async function GET() {
@@ -24,14 +29,19 @@ export async function GET() {
  * お礼のスタンプを押すために名前だけは受け取るが、スタンプカードを更新
  * するのに使うだけで、ご意見の行には残さない。あとから突き合わせて誰が
  * 書いたかを調べることはできない。
+ *
+ * 口頭でいただいたご要望を販売員が書き留めるときも、同じ入口を通して
+ * 同じ記録に並べる。こちらは書いた本人がその場で聞いているので、未読に
+ * せず最初から確認済みにしておく。お礼のスタンプも押さない。
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { category, body: text, nickname } = body as {
+    const { category, body: text, nickname, source } = body as {
       category?: string;
       body?: string;
       nickname?: string;
+      source?: string;
     };
 
     const trimmed = (text ?? "").trim();
@@ -49,12 +59,25 @@ export async function POST(request: NextRequest) {
       ? (category as string)
       : "other";
 
-    await db.opinion.create({ data: { category: safeCategory, body: trimmed } });
+    const safeSource = (OPINION_SOURCES as readonly string[]).includes(source ?? "")
+      ? (source as string)
+      : "app";
+    const fromStaff = safeSource === "staff";
+
+    await db.opinion.create({
+      data: {
+        category: safeCategory,
+        body: trimmed,
+        source: safeSource,
+        // 販売員が書き留めた時点で中身は読まれている
+        readAt: fromStaff ? new Date() : null,
+      },
+    });
 
     // お礼のスタンプは1日1回まで。何度も送って際限なく増やせないようにする。
     let stampAdded = false;
     let completedCards = 0;
-    const name = (nickname ?? "").trim();
+    const name = fromStaff ? "" : (nickname ?? "").trim();
 
     if (name) {
       const today = toJstDateString();

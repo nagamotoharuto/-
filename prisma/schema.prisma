@@ -144,6 +144,10 @@ model Opinion {
   // product | feature | other
   category  String    @default("other")
   body      String
+  // app | staff。アプリから匿名で届いたものか、口頭でいただいて販売員が
+  // 書き留めたものか。どちらも同じご意見として扱うが、集計のときに
+  // アプリを使っていない層の声がどれだけあったかを分けて見られるようにする。
+  source    String    @default("app")
   createdAt DateTime  @default(now())
   // スタッフが目を通した時刻。未読の件数を出すために使う。
   readAt    DateTime?

@@ -2,12 +2,19 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { Check, Download, MessageSquare } from "lucide-react";
-import { cn, OPINION_CATEGORIES, OPINION_CATEGORY_LABELS } from "@/lib/utils";
+import {
+  cn,
+  OPINION_CATEGORIES,
+  OPINION_CATEGORY_LABELS,
+  OPINION_SOURCE_LABELS,
+} from "@/lib/utils";
+import OpinionEntryForm from "@/components/features/OpinionEntryForm";
 
 interface Opinion {
   id: string;
   category: string;
   body: string;
+  source: string;
   createdAt: string;
   readAt: string | null;
 }
@@ -43,6 +50,10 @@ function dayLabel(iso: string): string {
  * 既読にしても消えず、届いた日ごとにまとめて残り続ける。あとから
  * 読み返したり、研究の材料として書き出したりできるようにしている。
  * 匿名で受け取っているので、誰が書いたかは分からない。
+ *
+ * 口頭でいただいたご要望も同じ並びに入る。どちらから届いたかは札で
+ * 分かるようにしてあり、アプリを使っていない層の声がどれだけあったかを
+ * 後から数えられる。
  */
 export default function OpinionList() {
   const [opinions, setOpinions] = useState<Opinion[]>([]);
@@ -87,6 +98,8 @@ export default function OpinionList() {
       ? opinions
       : filter === "unread"
       ? opinions.filter((o) => !o.readAt)
+      : filter.startsWith("source:")
+      ? opinions.filter((o) => o.source === filter.slice("source:".length))
       : opinions.filter((o) => o.category === filter);
 
   // 届いた日ごとにまとめる。新しい日が上。
@@ -99,6 +112,8 @@ export default function OpinionList() {
   }
 
   const countOf = (cat: string) => opinions.filter((o) => o.category === cat).length;
+  const staffCount = opinions.filter((o) => o.source === "staff").length;
+  const appCount = opinions.length - staffCount;
 
   return (
     <section>
@@ -135,6 +150,8 @@ export default function OpinionList() {
         </div>
       </div>
 
+      <OpinionEntryForm onSaved={() => setReloadKey((k) => k + 1)} />
+
       {/* これまでに届いた総数と内訳。記録として積み上がっていることが分かるように。 */}
       {opinions.length > 0 && (
         <div className="bg-white border border-[#e8e0d8] rounded-2xl px-4 py-3 mb-2">
@@ -152,6 +169,14 @@ export default function OpinionList() {
               </span>
             ))}
           </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#6b5e52] mt-1 pt-1.5 border-t border-[#f0ebe4]">
+            <span>
+              アプリから <strong className="text-[#1a1a1a] tabular-nums">{appCount}</strong>
+            </span>
+            <span>
+              口頭で <strong className="text-[#1a1a1a] tabular-nums">{staffCount}</strong>
+            </span>
+          </div>
         </div>
       )}
 
@@ -163,6 +188,8 @@ export default function OpinionList() {
             value: c,
             label: `${OPINION_CATEGORY_LABELS[c]} ${countOf(c)}`,
           })),
+          { value: "source:app", label: `アプリから ${appCount}` },
+          { value: "source:staff", label: `口頭で ${staffCount}` },
         ].map((f) => (
           <button
             key={f.value}
@@ -214,6 +241,16 @@ export default function OpinionList() {
                     >
                       {OPINION_CATEGORY_LABELS[o.category] ?? o.category}
                     </span>
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold px-2 py-0.5 rounded-full border",
+                        o.source === "staff"
+                          ? "text-[#8B1A2C] bg-[#f7eef0] border-[#e4ccd2]"
+                          : "text-[#6b5e52] bg-white border-[#e8e0d8]"
+                      )}
+                    >
+                      {OPINION_SOURCE_LABELS[o.source] ?? o.source}
+                    </span>
                     {!o.readAt && (
                       <span className="text-[10px] font-black text-white bg-[#F0AA5A] rounded-full px-2 py-0.5">
                         未読
@@ -240,6 +277,7 @@ export default function OpinionList() {
       <p className="text-xs text-[#6b5e52] mt-2">
         既読にしても消えません。届いた日ごとに記録として残ります。
         匿名で届くため、どなたが書いたかは分かりません。
+        「口頭」は販売員が直接お聞きして書き留めたもので、書いた時点で確認済みになります。
       </p>
     </section>
   );
