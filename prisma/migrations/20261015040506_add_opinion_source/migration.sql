@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "Opinion" ADD COLUMN     "source" TEXT NOT NULL DEFAULT 'app';
+
+-- AlterTable
+ALTER TABLE "OrderItem" ALTER COLUMN "name" DROP DEFAULT,
+ALTER COLUMN "imageUrl" DROP DEFAULT,
+ALTER COLUMN "category" DROP DEFAULT;

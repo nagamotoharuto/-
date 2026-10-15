@@ -257,6 +257,15 @@ export const OPINION_CATEGORY_LABELS: Record<string, string> = {
 
 export const OPINION_MAX_LENGTH = 500;
 
+// ご意見がどこから届いたか。アプリを使っていないお客様の声は口頭でしか
+// 入ってこないため、販売員が書き留めたものも同じ記録に並べて残す。
+export const OPINION_SOURCES = ["app", "staff"] as const;
+
+export const OPINION_SOURCE_LABELS: Record<string, string> = {
+  app: "アプリ",
+  staff: "口頭",
+};
+
 export const STAMPS_PER_CARD = 10;
 
 // スタンプが満了したときの特典は製作者が個別に渡すため、
