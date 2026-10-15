@@ -14,6 +14,9 @@ const NAV_ITEMS = [
   { href: "/admin/records", label: "記録", icon: CalendarDays },
 ];
 
+// ご意見は記録から開く別画面なので、開いている間も「記録」を選んだ状態に見せる
+const RECORDS_TABS = ["/admin/records", "/admin/opinions"];
+
 export default function StaffHeader() {
   const pathname = usePathname();
   const router = useRouter();
@@ -68,7 +71,10 @@ export default function StaffHeader() {
       </div>
       <nav className="flex bg-[#7A1726]">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(`${href}/`);
+          const active =
+            href === "/admin/records"
+              ? RECORDS_TABS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+              : pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link
               key={href}
