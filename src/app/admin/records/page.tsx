@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CalendarDays, Check, Download, DoorClosed, AlertTriangle } from "lucide-react";
 import StaffHeader from "@/components/features/StaffHeader";
 import OpinionSummaryCard from "@/components/features/OpinionSummaryCard";
+import QtyStepper from "@/components/features/QtyStepper";
 import {
   CATEGORIES,
   CATEGORY_LABELS,
@@ -354,28 +355,25 @@ export default function RecordsPage() {
                                     </td>
                                     <td className="px-3 py-2 text-right">
                                       <div className="flex items-center justify-end gap-1">
-                                        <input
-                                          type="number"
-                                          min={0}
+                                        <QtyStepper
+                                          value={shown === "" ? null : Number(shown)}
                                           max={row.plannedQty}
-                                          value={shown}
-                                          placeholder="—"
-                                          onChange={(e) =>
+                                          size="sm"
+                                          onChange={(next) =>
                                             setDrafts((prev) => ({
                                               ...prev,
-                                              [row.productId]: e.target.value,
+                                              [row.productId]: String(next),
                                             }))
                                           }
-                                          onBlur={(e) => {
-                                            if (e.target.value === "") return;
+                                          onCommit={(next) =>
                                             saveClosingQty(
                                               row.productId,
-                                              Math.max(0, parseInt(e.target.value, 10) || 0),
+                                              next,
                                               row.plannedQty,
                                               row.productName
-                                            );
-                                          }}
-                                          className="w-16 border border-[#e8e0d8] rounded-lg px-2 py-1 text-right text-sm font-black bg-[#fdf8f3] focus:outline-none focus:ring-2 focus:ring-[#8B1A2C]"
+                                            )
+                                          }
+                                          label={`${row.productName}の閉店残数`}
                                         />
                                         {savedId === row.productId && (
                                           <Check size={14} className="text-green-600" />

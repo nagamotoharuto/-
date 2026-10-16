@@ -126,6 +126,23 @@ export function getNextBusinessDay(date: Date = new Date()): string {
   return toJstDateString(cursor);
 }
 
+/**
+ * 今日より先の営業日を、近い順に指定した数だけ返す。
+ *
+ * 1週間先に何のパンを出すかは決まっているので、手が空いたときに先まで
+ * 発注数を入れておけるようにするために使う。土日と祝日は飛ばす。
+ */
+export function getUpcomingBusinessDays(count: number, date: Date = new Date()): string[] {
+  const days: string[] = [];
+  let cursor = jstDateStringToUtc(toJstDateString(date));
+  // 連休をまたいでも足りるよう、日数には余裕を持たせる
+  for (let i = 0; i < count * 7 + 14 && days.length < count; i++) {
+    cursor = new Date(cursor.getTime() + MS_PER_DAY);
+    if (isBusinessDay(cursor)) days.push(toJstDateString(cursor));
+  }
+  return days;
+}
+
 export function getPreviousBusinessDay(date: Date = new Date()): string {
   let cursor = jstDateStringToUtc(toJstDateString(date));
   for (let i = 0; i < 14; i++) {
