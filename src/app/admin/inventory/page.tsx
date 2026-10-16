@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   CalendarDays,
+  CalendarPlus,
   Check,
+  ChevronDown,
+  ChevronUp,
   Copy,
   ImageOff,
   Package,
@@ -19,6 +22,7 @@ import {
 } from "lucide-react";
 import StaffHeader from "@/components/features/StaffHeader";
 import ImageUploadZone from "@/components/features/ImageUploadZone";
+import QtyStepper from "@/components/features/QtyStepper";
 import {
   CATEGORIES,
   CATEGORY_LABELS,
@@ -27,6 +31,7 @@ import {
   formatPrice,
   getNextBusinessDay,
   getReservableQty,
+  getUpcomingBusinessDays,
   getWalkInSharePercent,
   SUB_CATEGORIES,
   SUB_CATEGORY_LABELS,
@@ -78,6 +83,11 @@ export default function InventoryPage() {
   const router = useRouter();
 
   const [saleDates] = useState<string[]>(() => [toJstDateString(), getNextBusinessDay()]);
+  // 次の営業日より先。1週間ぶんを見込んで、営業日で4日先まで用意する。
+  const [laterDates] = useState<string[]>(() => getUpcomingBusinessDays(5).slice(1));
+  const [showLater, setShowLater] = useState(false);
+  // 先の営業日に、もうパンの発注数が入っているか
+  const [laterFilled, setLaterFilled] = useState<Record<string, boolean>>({});
   const [date, setDate] = useState(() => getNextBusinessDay());
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,6 +133,25 @@ export default function InventoryPage() {
       cancelled = true;
     };
   }, [date, reloadKey]);
+
+  useEffect(() => {
+    if (laterDates.length === 0) return;
+    let cancelled = false;
+
+    fetch(`/api/daily-stock/status?dates=${laterDates.join(",")}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data.filled) return;
+        const filled: Record<string, boolean> = {};
+        for (const d of laterDates) filled[d] = (data.filled[d] ?? 0) > 0;
+        setLaterFilled(filled);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [laterDates, reloadKey]);
 
   function selectDate(next: string) {
     if (next === date) return;
@@ -191,6 +220,9 @@ export default function InventoryPage() {
       setBusy(null);
     }
   }
+
+  const laterSetCount = laterDates.filter((d) => laterFilled[d]).length;
+  const isLaterDate = !saleDates.includes(date);
 
   function getEdit(item: Item): EditState {
     return (
@@ -346,6 +378,62 @@ export default function InventoryPage() {
             ))}
           </div>
 
+          {/* 先の営業日。ふだんは畳んでおき、手の空いたときだけ開く。 */}
+          <button
+            onClick={() => setShowLater((v) => !v)}
+            className="w-full flex items-center justify-between text-left mb-2"
+          >
+            <span className="flex items-center gap-1.5 text-xs font-bold text-[#8B1A2C]">
+              <CalendarPlus size={14} />
+              もっと先の営業日も入れる
+              {laterSetCount > 0 && (
+                <span className="text-[10px] font-black text-white bg-[#8B1A2C] rounded-full px-2 py-0.5">
+                  {laterSetCount}日ぶん入力済み
+                </span>
+              )}
+            </span>
+            {showLater ? (
+              <ChevronUp size={15} className="text-[#6b5e52]" />
+            ) : (
+              <ChevronDown size={15} className="text-[#6b5e52]" />
+            )}
+          </button>
+
+          {showLater && (
+            <div className="mb-3">
+              <div className="flex flex-wrap gap-2">
+                {laterDates.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => selectDate(d)}
+                    className={cn(
+                      "px-3 py-2 rounded-xl text-xs font-bold border transition-colors",
+                      date === d
+                        ? "bg-[#8B1A2C] text-white border-[#8B1A2C]"
+                        : "bg-white text-[#6b5e52] border-[#e8e0d8] hover:border-[#8B1A2C]"
+                    )}
+                  >
+                    {formatJstDateLabel(d)}
+                    {laterFilled[d] ? (
+                      <span
+                        className={cn(
+                          "ml-1.5 text-[10px] font-black",
+                          date === d ? "text-[#F0AA5A]" : "text-[#8B1A2C]"
+                        )}
+                      >
+                        入力済
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-[#6b5e52] mt-2 leading-relaxed">
+                先の営業日の発注数を、手の空いたときに入れておけます。
+                お客様に見えるのは当日と次の営業日だけなので、先に入れても予約は受け付けません。
+              </p>
+            </div>
+          )}
+
           <p className="text-xs font-bold text-[#6b5e52] mb-1.5">過去の発注数を写す</p>
           <div className="flex flex-wrap gap-2">
             <button
@@ -383,6 +471,30 @@ export default function InventoryPage() {
             {error}
           </p>
         )}
+
+        {/* いま何日ぶんを触っているか。先の営業日を選んだまま畳んでも取り違えないように。 */}
+        <div
+          className={cn(
+            "flex items-center gap-2 rounded-xl px-3 py-2.5 border",
+            isLaterDate
+              ? "bg-[#fff8ee] border-[#F0AA5A]"
+              : "bg-white border-[#e8e0d8]"
+          )}
+        >
+          <CalendarDays size={15} className="text-[#8B1A2C] flex-shrink-0" />
+          <p className="text-sm font-black text-[#1a1a1a]">
+            {formatJstDateLabel(date)}
+            {/* 当日と次の営業日は formatJstDateLabel が印を付けるので、先の日だけ補う */}
+            {isLaterDate && (
+              <span className="font-bold text-[#6b5e52] text-xs ml-1.5">（先の営業日）</span>
+            )}
+          </p>
+          {isLaterDate && (
+            <span className="ml-auto text-[11px] font-bold text-[#8B1A2C]">
+              まだお客様には出ません
+            </span>
+          )}
+        </div>
 
         <p className="text-xs text-[#6b5e52]">
           発注数を入れた <strong className="text-[#8B1A2C]">{offeredCount}件</strong> がこの日のメニューに並びます。
@@ -461,18 +573,11 @@ export default function InventoryPage() {
                           </div>
 
                           <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <input
-                              type="number"
-                              min={0}
+                            <QtyStepper
                               value={item.plannedQty}
-                              onChange={(e) =>
-                                previewPlannedQty(item, Math.max(0, parseInt(e.target.value, 10) || 0))
-                              }
-                              onBlur={(e) =>
-                                savePlannedQty(item.id, Math.max(0, parseInt(e.target.value, 10) || 0))
-                              }
-                              className="w-16 border border-[#e8e0d8] rounded-lg px-2 py-2 text-right text-base font-black bg-[#fdf8f3] focus:outline-none focus:ring-2 focus:ring-[#8B1A2C]"
-                              aria-label={`${item.name}の発注数`}
+                              onChange={(next) => previewPlannedQty(item, next)}
+                              onCommit={(next) => savePlannedQty(item.id, next)}
+                              label={`${item.name}の発注数`}
                             />
                             {savedId === item.id && <Check size={14} className="text-green-600" />}
                             <button
