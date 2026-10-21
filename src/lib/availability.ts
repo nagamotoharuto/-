@@ -11,8 +11,16 @@ import {
 // hand the item back to the shelf, so they free their slot again.
 export const SLOT_HOLDING_STATUSES = ["pending", "ready", "completed"] as const;
 
-// 受け取り前の予約。棚には残っているが、飛び込み客に売ってはいけない分。
+// 受け取り前の予約。まだ渡していない分。
 const AWAITING_PICKUP_STATUSES = ["pending", "ready"] as const;
+
+// まだ取り置きの準備をしていない予約。棚に残ったままで、飛び込み客に
+// 売ってしまう危険があるのはこの分。
+const NOT_SET_ASIDE_STATUSES = ["pending"] as const;
+
+// 「準備ができた」を押して取り置いた分。袋に入れて脇に寄せた時点で
+// 棚からは無くなっているので、店頭の残数から引く。
+const SET_ASIDE_STATUSES = ["ready"] as const;
 
 // Statuses a reservation can still be released from — it has neither been
 // collected nor already given up.
@@ -37,13 +45,17 @@ export interface ProductAvailability {
   walkInSharePercent: number;
   /** 予約が入っている数（キャンセル・解放を除く） */
   reservedQty: number;
-  /** まだ受け取られていない予約数 */
+  /** まだ受け取られていない予約数（取り置き前＋取り置き済み） */
   unfulfilledQty: number;
+  /** まだ取り置いていない予約数。棚に残ったままの予約分。 */
+  pendingQty: number;
+  /** 取り置き済みでまだ渡していない数。棚からは外してある。 */
+  setAsideQty: number;
   /** 受け渡し済みの予約数 */
   handedOverQty: number;
   /** 飛び込み客に売れた数 */
   walkInSoldQty: number;
-  /** 店頭の残数 = 発注数 − 飛び込み販売 − 受け渡し済み */
+  /** 店頭の残数 = 発注数 − 飛び込み販売 − 受け渡し済み − 取り置き済み */
   remainingStock: number;
   /** 予約可能残数 */
   remainingQty: number;
@@ -75,7 +87,36 @@ export async function releaseOverdueReservations(now: Date = new Date()): Promis
     where: { id: { in: overdueIds }, status: { in: [...RELEASABLE_STATUSES] } },
     data: { status: "released", releasedAt: now },
   });
+
+  // 取り置いてあった分が棚に戻るので、売り切れの記録を取り直す
+  if (result.count > 0) await resyncSoldOutForOrders(overdueIds);
+
   return result.count;
+}
+
+/**
+ * 指定した注文に入っていた商品の売り切れ時刻を、今の状態で取り直す。
+ *
+ * 取り置きと解放で棚の残数が動くため、そのたびに数え直さないと
+ * 売り切れた時刻が実態とずれる。研究で使う数字なので合わせておく。
+ */
+export async function resyncSoldOutForOrders(orderIds: string[]): Promise<void> {
+  if (orderIds.length === 0) return;
+
+  const items = await db.orderItem.findMany({
+    where: { orderId: { in: orderIds } },
+    select: { productId: true, order: { select: { pickupDate: true } } },
+  });
+
+  const seen = new Set<string>();
+  for (const item of items) {
+    const date = item.order.pickupDate;
+    if (!date) continue;
+    const key = `${date}:${item.productId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    await syncSoldOutAt(date, item.productId);
+  }
 }
 
 /** 毎日ほぼ同じ品揃えで、前日の発注数をそのまま引き継ぐ売り場かどうか。 */
@@ -145,6 +186,8 @@ async function getOrderQuantities(date: string) {
 
   const reserved = new Map<string, number>();
   const awaiting = new Map<string, number>();
+  const pending = new Map<string, number>();
+  const setAside = new Map<string, number>();
   const handedOver = new Map<string, number>();
 
   const add = (map: Map<string, number>, id: string, qty: number) =>
@@ -158,12 +201,18 @@ async function getOrderQuantities(date: string) {
     if ((AWAITING_PICKUP_STATUSES as readonly string[]).includes(status)) {
       add(awaiting, item.productId, item.quantity);
     }
+    if ((NOT_SET_ASIDE_STATUSES as readonly string[]).includes(status)) {
+      add(pending, item.productId, item.quantity);
+    }
+    if ((SET_ASIDE_STATUSES as readonly string[]).includes(status)) {
+      add(setAside, item.productId, item.quantity);
+    }
     if (status === "completed") {
       add(handedOver, item.productId, item.quantity);
     }
   }
 
-  return { reserved, awaiting, handedOver };
+  return { reserved, awaiting, pending, setAside, handedOver };
 }
 
 /** 販売日の飛び込み販売を商品単位で数える。 */
@@ -186,6 +235,10 @@ export async function getWalkInQuantities(date: string): Promise<Map<string, num
  * 予約可能数は2つの上限の小さい方。発注数から決まる予約枠と、棚に実際に
  * 残っている数のうち受け取り前の予約に取られていない分。飛び込み客に売れて
  * 棚が薄くなれば、枠が余っていても予約は受けられなくなる。
+ *
+ * 店頭の残数は「いま棚にある数」。取り置いた分は袋に入れて脇に寄せてあり、
+ * もう棚には無いので引く。飛び込み客に売れるのはこの数までで、ライブカメラ
+ * の一覧もこれを出す。
  */
 export async function getAvailability(date: string): Promise<ProductAvailability[]> {
   const [products, dailyStocks, orderQty, walkInSold] = await Promise.all([
@@ -204,10 +257,15 @@ export async function getAvailability(date: string): Promise<ProductAvailability
 
     const reservedQty = orderQty.reserved.get(p.id) ?? 0;
     const unfulfilledQty = orderQty.awaiting.get(p.id) ?? 0;
+    const pendingQty = orderQty.pending.get(p.id) ?? 0;
+    const setAsideQty = orderQty.setAside.get(p.id) ?? 0;
     const handedOverQty = orderQty.handedOver.get(p.id) ?? 0;
     const walkInSoldQty = walkInSold.get(p.id) ?? 0;
 
-    const remainingStock = Math.max(0, plannedQty - walkInSoldQty - handedOverQty);
+    const remainingStock = Math.max(
+      0,
+      plannedQty - walkInSoldQty - handedOverQty - setAsideQty
+    );
 
     return {
       id: p.id,
@@ -224,12 +282,16 @@ export async function getAvailability(date: string): Promise<ProductAvailability
       walkInSharePercent: getWalkInSharePercent(p),
       reservedQty,
       unfulfilledQty,
+      pendingQty,
+      setAsideQty,
       handedOverQty,
       walkInSoldQty,
       remainingStock,
+      // 取り置き済みはすでに店頭の残数から引いてあるので、ここで引くのは
+      // まだ棚に残っている予約分だけ。二重に引かないようにする。
       remainingQty: Math.max(
         0,
-        Math.min(reservableQty - reservedQty, remainingStock - unfulfilledQty)
+        Math.min(reservableQty - reservedQty, remainingStock - pendingQty)
       ),
       closingQty: daily?.closingQty ?? null,
     };
@@ -239,6 +301,10 @@ export async function getAvailability(date: string): Promise<ProductAvailability
 /**
  * 店頭の残数が0になった時点を売り切れ時刻として記録する。
  * 数え間違いで在庫が戻ったときは消して、次に0になった時刻を採る。
+ *
+ * 取り置き済みの分も棚には無いので引く。予約で全部押さえられた時点で
+ * 飛び込みのお客様は買えなくなるため、そこが売り切れた時刻になる。
+ * 受け取りに来ず解放されれば棚に戻るので、そのときは記録も取り消す。
  */
 export async function syncSoldOutAt(date: string, productId: string): Promise<void> {
   const [daily, orderQty, walkInSold] = await Promise.all([
@@ -251,7 +317,8 @@ export async function syncSoldOutAt(date: string, productId: string): Promise<vo
   const remaining =
     daily.plannedQty -
     (walkInSold.get(productId) ?? 0) -
-    (orderQty.handedOver.get(productId) ?? 0);
+    (orderQty.handedOver.get(productId) ?? 0) -
+    (orderQty.setAside.get(productId) ?? 0);
 
   if (remaining <= 0 && !daily.soldOutAt) {
     await db.dailyStock.update({ where: { id: daily.id }, data: { soldOutAt: new Date() } });
