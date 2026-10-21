@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { resyncSoldOutForOrders } from "@/lib/availability";
 
 // "released" = 未受取のまま受け取り時間を過ぎ、店頭販売に戻した予約
 const VALID_STATUSES = ["pending", "ready", "completed", "cancelled", "released"] as const;
@@ -70,6 +71,10 @@ export async function PATCH(
         items: { include: { product: true } },
       },
     });
+
+    // 取り置き・受け渡し・解放のどれでも棚の残数が動く。売り切れの記録を
+    // その場で合わせておく。
+    await resyncSoldOutForOrders([order.id]);
 
     return NextResponse.json(order);
   } catch (error: unknown) {

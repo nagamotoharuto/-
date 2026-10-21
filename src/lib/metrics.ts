@@ -124,6 +124,8 @@ export async function getMetrics(from: string, to: string): Promise<DayMetrics[]
     );
     const completed = dayOrders.filter((o) => o.status === "completed");
     const released = dayOrders.filter((o) => o.status === "released");
+    // 取り置き済みでまだ渡していない分。棚からは外してあるので残数から引く。
+    const setAside = dayOrders.filter((o) => o.status === "ready");
 
     const qtyByProduct = (list: typeof dayOrders) => {
       const map = new Map<string, number>();
@@ -138,6 +140,7 @@ export async function getMetrics(from: string, to: string): Promise<DayMetrics[]
     const reservedMap = qtyByProduct(holding);
     const handedMap = qtyByProduct(completed);
     const releasedMap = qtyByProduct(released);
+    const setAsideMap = qtyByProduct(setAside);
 
     // 予約の売上は受け渡しが済んだ分だけ。単価は注文時のものを使う。
     const reservedRevenueMap = new Map<string, number>();
@@ -166,8 +169,10 @@ export async function getMetrics(from: string, to: string): Promise<DayMetrics[]
       const handedOverQty = handedMap.get(stock.productId) ?? 0;
       const releasedQty = releasedMap.get(stock.productId) ?? 0;
       const walkInSoldQty = walkInQtyMap.get(stock.productId) ?? 0;
+      const setAsideQty = setAsideMap.get(stock.productId) ?? 0;
       const soldQty = handedOverQty + walkInSoldQty;
-      const remainingStock = Math.max(0, stock.plannedQty - soldQty);
+      // 棚にある数。売れた分に加え、取り置いてある分も棚には無い。
+      const remainingStock = Math.max(0, stock.plannedQty - soldQty - setAsideQty);
 
       return {
         date,

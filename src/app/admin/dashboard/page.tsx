@@ -54,6 +54,8 @@ interface AvailabilityItem {
   reservableQty: number;
   reservedQty: number;
   unfulfilledQty: number;
+  pendingQty: number;
+  setAsideQty: number;
   walkInSoldQty: number;
   remainingStock: number;
   remainingQty: number;
@@ -501,8 +503,9 @@ export default function TodayPage() {
                     <div className="flex flex-col gap-2">
                       {catItems.map((item) => {
                         const soldOut = item.remainingStock === 0;
-                        // 棚の残りが受け取り前の予約より少ない＝予約分を売ってしまう手前
-                        const short = item.remainingStock < item.unfulfilledQty;
+                        // 取り置き済みの分はすでに棚から外してある。危ないのは、
+                        // まだ取り置いていない予約が棚の残りを上回っているとき。
+                        const short = item.remainingStock < item.pendingQty;
                         return (
                           <div
                             key={item.id}
@@ -514,15 +517,16 @@ export default function TodayPage() {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-bold text-[#1a1a1a] truncate">{item.name}</p>
                               <p className="text-[11px] text-[#6b5e52] tabular-nums">
-                                残り<strong className={cn("mx-0.5", soldOut && "text-red-600")}>
+                                棚に<strong className={cn("mx-0.5", soldOut && "text-red-600")}>
                                   {item.remainingStock}
                                 </strong>
-                                ／発注{item.plannedQty}・予約{item.reservedQty}（未受取{item.unfulfilledQty}）・
+                                ／発注{item.plannedQty}・予約{item.reservedQty}
+                                （取置{item.setAsideQty}・未準備{item.pendingQty}）・
                                 飛び込み{item.walkInSoldQty}
                               </p>
                               {short && (
                                 <p className="text-[11px] font-bold text-red-700 mt-0.5">
-                                  予約分が不足します。これ以上店頭で売らないでください
+                                  まだ準備していない予約の分が足りません。これ以上店頭で売らないでください
                                 </p>
                               )}
                             </div>
