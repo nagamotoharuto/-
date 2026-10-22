@@ -97,7 +97,9 @@ export default function TodayPage() {
   const router = useRouter();
 
   const today = toJstDateString();
-  const nextDay = getNextBusinessDay();
+  // 休みにした日はサーバーしか知らないので、聞いてから次の営業日を出す
+  const [closedDates, setClosedDates] = useState<string[]>([]);
+  const nextDay = getNextBusinessDay(new Date(), closedDates);
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<AvailabilityItem[]>([]);
@@ -147,6 +149,7 @@ export default function TodayPage() {
       setMetrics(metricsRes.days?.[0] ?? null);
       setTurnawayCount(turnawayRes.count ?? 0);
       setClosedToday(Boolean(statusRes.closedToday));
+      setClosedDates(Array.isArray(statusRes.closedDates) ? statusRes.closedDates : []);
     } catch {
       // 次の定期取得で追いつく
     } finally {
@@ -177,6 +180,7 @@ export default function TodayPage() {
           setMetrics(metricsRes.days?.[0] ?? null);
           setTurnawayCount(turnawayRes.count ?? 0);
           setClosedToday(Boolean(statusRes.closedToday));
+          setClosedDates(Array.isArray(statusRes.closedDates) ? statusRes.closedDates : []);
         })
         .catch(() => {})
         .finally(() => {
@@ -595,7 +599,7 @@ export default function TodayPage() {
                     : "bg-white text-[#6b5e52] border-[#e8e0d8]"
                 )}
               >
-                {formatJstDateLabel(d)}
+                {formatJstDateLabel(d, new Date(), closedDates)}
                 <span className="ml-1 opacity-80">
                   {orders.filter((o) => o.pickupDate === d && o.status !== "cancelled").length}件
                 </span>

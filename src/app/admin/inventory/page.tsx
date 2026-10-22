@@ -1,10 +1,11 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   CalendarDays,
+  CalendarOff,
   CalendarPlus,
   Check,
   ChevronDown,
@@ -82,9 +83,19 @@ const EMPTY_NEW = {
 export default function InventoryPage() {
   const router = useRouter();
 
-  const [saleDates] = useState<string[]>(() => [toJstDateString(), getNextBusinessDay()]);
+  // 休みにした日はサーバーしか知らない。聞くまでは曜日と祝日だけで出し、
+  // 届いたら中止になった日を飛ばして出し直す。
+  const [closedDates, setClosedDates] = useState<string[]>([]);
+
+  const saleDates = useMemo(
+    () => [toJstDateString(), getNextBusinessDay(new Date(), closedDates)],
+    [closedDates]
+  );
   // 次の営業日より先。1週間ぶんを見込んで、営業日で4日先まで用意する。
-  const [laterDates] = useState<string[]>(() => getUpcomingBusinessDays(5).slice(1));
+  const laterDates = useMemo(
+    () => getUpcomingBusinessDays(5, new Date(), closedDates).slice(1),
+    [closedDates]
+  );
   const [showLater, setShowLater] = useState(false);
   // 先の営業日に、もうパンの発注数が入っているか
   const [laterFilled, setLaterFilled] = useState<Record<string, boolean>>({});
@@ -102,6 +113,7 @@ export default function InventoryPage() {
   const [brokenThumbs, setBrokenThumbs] = useState<Record<string, boolean>>({});
 
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [confirmClose, setConfirmClose] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [newProduct, setNewProduct] = useState(EMPTY_NEW);
   const [addError, setAddError] = useState("");
@@ -133,6 +145,25 @@ export default function InventoryPage() {
       cancelled = true;
     };
   }, [date, reloadKey]);
+
+  const loadClosedDates = useCallback(() => {
+    return fetch("/api/business-status")
+      .then((r) => r.json())
+      .then((data) => {
+        const list: string[] = Array.isArray(data.closedDates) ? data.closedDates : [];
+        setClosedDates(list);
+        // 開いている日が休みになっていたら次の営業日へ移す。中止した日に
+        // 発注数を入れ続けてしまわないように。
+        setDate((current) =>
+          list.includes(current) ? getNextBusinessDay(new Date(), list) : current
+        );
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadClosedDates();
+  }, [loadClosedDates, reloadKey]);
 
   useEffect(() => {
     if (laterDates.length === 0) return;
@@ -198,6 +229,48 @@ export default function InventoryPage() {
     [date]
   );
 
+  /**
+   * 選んでいる販売日を休みにする、または休みを取り消す。
+   *
+   * 急に中止が決まった日を飛ばして次の営業日を出すために使う。休みにすると
+   * その日の予約は受け付けなくなり、お客様の画面は次の営業日に進む。
+   */
+  async function toggleClosed(closed: boolean) {
+    setBusy("closure");
+    setError("");
+    setNotice("");
+    try {
+      const res = closed
+        ? await fetch("/api/business-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date }),
+          })
+        : await fetch(`/api/business-status?date=${encodeURIComponent(date)}`, {
+            method: "DELETE",
+          });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "変更に失敗しました");
+        return;
+      }
+      setClosedDates(Array.isArray(data.closedDates) ? data.closedDates : []);
+      setNotice(
+        closed
+          ? `${formatJstDateLabel(date)} を休みにしました。次の営業日は ${formatJstDateLabel(
+              getNextBusinessDay(new Date(), data.closedDates ?? []),
+              new Date(),
+              data.closedDates ?? []
+            )} です`
+          : `${formatJstDateLabel(date)} の休みを取り消しました`
+      );
+      setConfirmClose(false);
+      setReloadKey((k) => k + 1);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   /** 過去の発注数をまとめて写す。 */
   async function copyFrom(mode: "previous" | "weekday") {
     setBusy("copy");
@@ -223,6 +296,7 @@ export default function InventoryPage() {
 
   const laterSetCount = laterDates.filter((d) => laterFilled[d]).length;
   const isLaterDate = !saleDates.includes(date);
+  const isClosedDate = closedDates.includes(date);
 
   function getEdit(item: Item): EditState {
     return (
@@ -373,7 +447,7 @@ export default function InventoryPage() {
                     : "bg-white text-[#6b5e52] border-[#e8e0d8] hover:border-[#8B1A2C]"
                 )}
               >
-                {formatJstDateLabel(d)}
+                {formatJstDateLabel(d, new Date(), closedDates)}
               </button>
             ))}
           </div>
@@ -413,7 +487,7 @@ export default function InventoryPage() {
                         : "bg-white text-[#6b5e52] border-[#e8e0d8] hover:border-[#8B1A2C]"
                     )}
                   >
-                    {formatJstDateLabel(d)}
+                    {formatJstDateLabel(d, new Date(), closedDates)}
                     {laterFilled[d] ? (
                       <span
                         className={cn(
@@ -483,16 +557,77 @@ export default function InventoryPage() {
         >
           <CalendarDays size={15} className="text-[#8B1A2C] flex-shrink-0" />
           <p className="text-sm font-black text-[#1a1a1a]">
-            {formatJstDateLabel(date)}
+            {formatJstDateLabel(date, new Date(), closedDates)}
             {/* 当日と次の営業日は formatJstDateLabel が印を付けるので、先の日だけ補う */}
             {isLaterDate && (
               <span className="font-bold text-[#6b5e52] text-xs ml-1.5">（先の営業日）</span>
             )}
           </p>
-          {isLaterDate && (
+          {isLaterDate && !isClosedDate && (
             <span className="ml-auto text-[11px] font-bold text-[#8B1A2C]">
               まだお客様には出ません
             </span>
+          )}
+          {isClosedDate && (
+            <span className="ml-auto text-[11px] font-black text-white bg-[#8B1A2C] rounded-full px-2.5 py-1">
+              休み
+            </span>
+          )}
+        </div>
+
+        {/* 急に中止が決まった日を休みにする。次の営業日が繰り下がる。 */}
+        <div className="bg-white border border-[#e8e0d8] rounded-2xl px-4 py-3">
+          {isClosedDate ? (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-[#6b5e52] leading-relaxed">
+                この日は<strong className="text-[#8B1A2C]">休み</strong>です。予約は受け付けません。
+              </p>
+              <button
+                onClick={() => toggleClosed(false)}
+                disabled={busy === "closure"}
+                className="flex-shrink-0 text-xs font-bold text-[#8B1A2C] bg-white border border-[#e8e0d8] rounded-xl px-3 py-2 hover:border-[#8B1A2C] disabled:opacity-50 transition-colors"
+              >
+                休みを取り消す
+              </button>
+            </div>
+          ) : confirmClose ? (
+            <div>
+              <p className="text-xs font-bold text-[#1a1a1a] mb-2">
+                {formatJstDateLabel(date, new Date(), closedDates)} を休みにします。よろしいですか？
+              </p>
+              <p className="text-[11px] text-[#6b5e52] mb-2.5 leading-relaxed">
+                この日の予約は受け付けなくなり、お客様の画面は次の営業日に進みます。
+                入力済みの発注数は消えません。
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => toggleClosed(true)}
+                  disabled={busy === "closure"}
+                  className="flex-1 bg-[#8B1A2C] text-white text-xs font-bold rounded-xl py-2.5 hover:bg-[#A52235] disabled:opacity-50 transition-colors"
+                >
+                  休みにする
+                </button>
+                <button
+                  onClick={() => setConfirmClose(false)}
+                  className="flex-1 bg-white text-[#6b5e52] text-xs font-bold border border-[#e8e0d8] rounded-xl py-2.5 hover:border-[#8B1A2C] transition-colors"
+                >
+                  やめる
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-[#6b5e52] leading-relaxed">
+                急に販売が中止になったときは、この日を休みにします。
+              </p>
+              <button
+                onClick={() => setConfirmClose(true)}
+                className="flex-shrink-0 flex items-center gap-1.5 text-xs font-bold text-[#8B1A2C] bg-white border border-[#e8e0d8] rounded-xl px-3 py-2 hover:border-[#8B1A2C] transition-colors"
+              >
+                <CalendarOff size={13} />
+                この日は休み
+              </button>
+            </div>
           )}
         </div>
 

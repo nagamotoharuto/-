@@ -24,6 +24,7 @@ export default function TimePage() {
   const [selectedDate, setSelectedDate] = useState(() => getReservableDate());
   // 臨時の営業終了はサーバーしか知らないので、受付中の日付を聞きに行く
   const [closedToday, setClosedToday] = useState(false);
+  const [closedDates, setClosedDates] = useState<string[]>([]);
   const [selectedTime, setSelectedTime] = useState(pickupTime);
   const [error, setError] = useState("");
 
@@ -41,6 +42,7 @@ export default function TimePage() {
         .then((data) => {
           if (cancelled || !data.reservableDate) return;
           setClosedToday(Boolean(data.closedToday));
+          setClosedDates(Array.isArray(data.closedDates) ? data.closedDates : []);
           setSelectedDate((current) => {
             if (data.reservableDate === current) return current;
             setSelectedTime("");
@@ -115,7 +117,7 @@ export default function TimePage() {
           </label>
           <div className="rounded-xl px-4 py-3 border-2 border-[#8B1A2C] bg-[#8B1A2C]/5">
             <p className="text-base font-black text-[#8B1A2C]">
-              {formatJstDateLabel(selectedDate)}
+              {formatJstDateLabel(selectedDate, new Date(), closedDates)}
             </p>
             <p className="text-xs text-[#6b5e52] mt-0.5">
               {isToday
@@ -157,7 +159,7 @@ export default function TimePage() {
             <div>
               <p className="text-xs text-[#8B1A2C] font-medium">受け取り予定</p>
               <p className="text-base font-black text-[#8B1A2C]">
-                {formatJstDateLabel(selectedDate)} {selectedTime}
+                {formatJstDateLabel(selectedDate, new Date(), closedDates)} {selectedTime}
               </p>
             </div>
           </div>
