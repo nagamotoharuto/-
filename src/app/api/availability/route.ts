@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureCarryOver, getAvailability, releaseOverdueReservations } from "@/lib/availability";
 import { getReservableDates } from "@/lib/utils";
+import { getClosedDates } from "@/lib/closures";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     const items = await getAvailability(date);
     return NextResponse.json({
       date,
-      reservableDates: getReservableDates(),
+      reservableDates: getReservableDates(new Date(), false, await getClosedDates()),
       items,
     });
   } catch (error) {

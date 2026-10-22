@@ -10,6 +10,7 @@ import {
 } from "@/lib/utils";
 import { ensureCarryOver, getAvailability, releaseOverdueReservations } from "@/lib/availability";
 import { isClosedToday } from "@/app/api/business-status/route";
+import { getClosedDates } from "@/lib/closures";
 import { grantStamps } from "@/lib/stamps";
 
 const PAYMENT_METHODS = ["cash", "cashless"];
@@ -66,7 +67,8 @@ export async function POST(request: NextRequest) {
     // Exactly one sale date takes reservations at a time: today's until the
     // counter closes, then the next business day's. Reservations themselves are
     // accepted around the clock, including after hours and over the weekend.
-    if (pickupDate !== getReservableDate(new Date(), await isClosedToday())) {
+    const closedDates = await getClosedDates();
+    if (pickupDate !== getReservableDate(new Date(), await isClosedToday(), closedDates)) {
       return NextResponse.json(
         { error: "その日付は現在ご予約いただけません。受け取り日を選び直してください" },
         { status: 400 }

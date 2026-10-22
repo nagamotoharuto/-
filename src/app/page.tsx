@@ -37,6 +37,8 @@ export default function HomePage() {
   const [error, setError] = useState("");
   const [storeOpen, setStoreOpen] = useState(false);
   const [reservableDate, setReservableDate] = useState(() => getReservableDate());
+  // 休みにした日。日付の見出しに「（次の営業日）」を正しく出すために使う。
+  const [closedDates, setClosedDates] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +50,7 @@ export default function HomePage() {
           if (cancelled) return;
           setStoreOpen(Boolean(data.counterOpen));
           if (data.reservableDate) setReservableDate(data.reservableDate);
+          setClosedDates(Array.isArray(data.closedDates) ? data.closedDates : []);
         })
         .catch(() => {});
     }
@@ -98,7 +101,7 @@ export default function HomePage() {
             {storeOpen ? "只今営業中" : "只今営業時間外"}
           </div>
           <p className="text-xs text-[#A8C8F0] mt-2">
-            {formatJstDateLabel(reservableDate)}分のご予約を受付中
+            {formatJstDateLabel(reservableDate, new Date(), closedDates)}分のご予約を受付中
           </p>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAvailability } from "@/lib/availability";
 import { isBusinessDay, toJstDateString } from "@/lib/utils";
+import { getClosedDatesInRange } from "@/lib/closures";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -23,6 +24,12 @@ async function findSourceDate(
 ): Promise<string | null> {
   const step = mode === "weekday" ? 7 : 1;
   let cursor = jstMidnight(targetDate);
+  // 休みにした日から写しても中身が無いので、遡るときに飛ばす。
+  // 探す範囲（最大8週間ぶん）に余裕を持たせて遡って読む。
+  const closedDates = await getClosedDatesInRange(
+    toJstDateString(new Date(cursor.getTime() - 70 * MS_PER_DAY)),
+    targetDate
+  );
 
   // 曜日指定なら8週間、前営業日なら約1か月ぶん遡れば十分
   const maxSteps = mode === "weekday" ? 8 : 30;
@@ -30,7 +37,7 @@ async function findSourceDate(
   for (let i = 0; i < maxSteps; i++) {
     cursor = new Date(cursor.getTime() - step * MS_PER_DAY);
     const iso = toJstDateString(cursor);
-    if (mode === "previous" && !isBusinessDay(cursor)) continue;
+    if (mode === "previous" && !isBusinessDay(cursor, closedDates)) continue;
 
     const count = await db.dailyStock.count({ where: { date: iso, plannedQty: { gt: 0 } } });
     if (count > 0) return iso;

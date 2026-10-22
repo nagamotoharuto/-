@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { compareProducts, isBusinessDay, toJstDateString } from "@/lib/utils";
+import { getClosedDates } from "@/lib/closures";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 // 同じ曜日をどこまで遡って探すか
@@ -76,6 +77,9 @@ export async function GET() {
         .sort(compareProducts)
         .map((p) => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, price: p.price }));
 
+    // 休みにした日は献立にも出さない
+    const closedDates = await getClosedDates();
+
     const days: WeeklyMenuDay[] = week.map((date) => {
       const own = breadByDate.get(date);
       if (own?.length) {
@@ -83,7 +87,7 @@ export async function GET() {
           date,
           weekday: jstWeekday(date),
           isToday: date === today,
-          isBusinessDay: isBusinessDay(jstMidnight(date)),
+          isBusinessDay: isBusinessDay(jstMidnight(date), closedDates),
           isConfirmed: true,
           sourceDate: null,
           items: toItems(own),
@@ -99,7 +103,7 @@ export async function GET() {
             date,
             weekday: jstWeekday(date),
             isToday: date === today,
-            isBusinessDay: isBusinessDay(jstMidnight(date)),
+            isBusinessDay: isBusinessDay(jstMidnight(date), closedDates),
             isConfirmed: false,
             sourceDate: past,
             items: toItems(rows),
@@ -111,7 +115,7 @@ export async function GET() {
         date,
         weekday: jstWeekday(date),
         isToday: date === today,
-        isBusinessDay: isBusinessDay(jstMidnight(date)),
+        isBusinessDay: isBusinessDay(jstMidnight(date), closedDates),
         isConfirmed: false,
         sourceDate: null,
         items: [],

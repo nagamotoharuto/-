@@ -80,18 +80,35 @@ function getJstParts(date: Date) {
   };
 }
 
-// 営業日：月〜金（土日祝は休業）
-export function isBusinessDay(date: Date = new Date()): boolean {
+/**
+ * その日が休みになっている販売日かどうか。
+ *
+ * 土日祝のほかに、急な中止で休みにした日がある。休みにした日は
+ * サーバーにしか無いので、必要な場面で一覧を渡してもらう。渡されなければ
+ * これまでどおり曜日と祝日だけで判断する。
+ */
+export type ClosedDates = ReadonlySet<string> | readonly string[] | null | undefined;
+
+function isClosedDate(isoDate: string, closedDates: ClosedDates): boolean {
+  if (!closedDates) return false;
+  return closedDates instanceof Set
+    ? closedDates.has(isoDate)
+    : (closedDates as readonly string[]).includes(isoDate);
+}
+
+// 営業日：月〜金（土日祝は休業）。休みにした日もここで除く。
+export function isBusinessDay(date: Date = new Date(), closedDates?: ClosedDates): boolean {
   const { day, isoDate } = getJstParts(date);
   if (day === 0 || day === 6) return false;
+  if (isClosedDate(isoDate, closedDates)) return false;
   return !holidayJp.isHoliday(isoDate);
 }
 
 // 営業時間：営業日の 11:00〜15:00（日本時間基準）
-export function isWithinSalesHours(date: Date = new Date()): boolean {
+export function isWithinSalesHours(date: Date = new Date(), closedDates?: ClosedDates): boolean {
   // Local test-drive override — set in .env only, never commit/deploy this as true.
   if (process.env.NEXT_PUBLIC_FORCE_SALES_OPEN === "true") return true;
-  if (!isBusinessDay(date)) return false;
+  if (!isBusinessDay(date, closedDates)) return false;
   const { hour, minute } = getJstParts(date);
   const totalMin = hour * 60 + minute;
   return totalMin >= 11 * 60 && totalMin < 15 * 60;
@@ -116,12 +133,12 @@ function jstDateStringToUtc(isoDate: string): Date {
   return new Date(`${isoDate}T00:00:00+09:00`);
 }
 
-export function getNextBusinessDay(date: Date = new Date()): string {
+export function getNextBusinessDay(date: Date = new Date(), closedDates?: ClosedDates): string {
   let cursor = jstDateStringToUtc(toJstDateString(date));
   // A run of closed days is at most a long weekend plus holidays; 14 is ample.
   for (let i = 0; i < 14; i++) {
     cursor = new Date(cursor.getTime() + MS_PER_DAY);
-    if (isBusinessDay(cursor)) return toJstDateString(cursor);
+    if (isBusinessDay(cursor, closedDates)) return toJstDateString(cursor);
   }
   return toJstDateString(cursor);
 }
@@ -132,22 +149,26 @@ export function getNextBusinessDay(date: Date = new Date()): string {
  * 1週間先に何のパンを出すかは決まっているので、手が空いたときに先まで
  * 発注数を入れておけるようにするために使う。土日と祝日は飛ばす。
  */
-export function getUpcomingBusinessDays(count: number, date: Date = new Date()): string[] {
+export function getUpcomingBusinessDays(
+  count: number,
+  date: Date = new Date(),
+  closedDates?: ClosedDates
+): string[] {
   const days: string[] = [];
   let cursor = jstDateStringToUtc(toJstDateString(date));
   // 連休をまたいでも足りるよう、日数には余裕を持たせる
   for (let i = 0; i < count * 7 + 14 && days.length < count; i++) {
     cursor = new Date(cursor.getTime() + MS_PER_DAY);
-    if (isBusinessDay(cursor)) days.push(toJstDateString(cursor));
+    if (isBusinessDay(cursor, closedDates)) days.push(toJstDateString(cursor));
   }
   return days;
 }
 
-export function getPreviousBusinessDay(date: Date = new Date()): string {
+export function getPreviousBusinessDay(date: Date = new Date(), closedDates?: ClosedDates): string {
   let cursor = jstDateStringToUtc(toJstDateString(date));
   for (let i = 0; i < 14; i++) {
     cursor = new Date(cursor.getTime() - MS_PER_DAY);
-    if (isBusinessDay(cursor)) return toJstDateString(cursor);
+    if (isBusinessDay(cursor, closedDates)) return toJstDateString(cursor);
   }
   return toJstDateString(cursor);
 }
@@ -161,27 +182,47 @@ export function getPreviousBusinessDay(date: Date = new Date()): string {
  * staff have finished deciding that day's line-up. Reservations therefore run
  * through the night and across the weekend, unlike the counter itself.
  */
-export function getReservableDate(now: Date = new Date(), closedToday = false): string {
+export function getReservableDate(
+  now: Date = new Date(),
+  closedToday = false,
+  closedDates?: ClosedDates
+): string {
   const today = toJstDateString(now);
   // 臨時に店じまいした日は、時間が残っていても受付を次の営業日へ進める
-  if (!closedToday && isBusinessDay(now) && getAvailableTimeSlots(today, now).length > 0) {
+  if (
+    !closedToday &&
+    isBusinessDay(now, closedDates) &&
+    getAvailableTimeSlots(today, now).length > 0
+  ) {
     return today;
   }
-  return getNextBusinessDay(now);
+  return getNextBusinessDay(now, closedDates);
 }
 
-export function getReservableDates(now: Date = new Date(), closedToday = false): string[] {
-  return [getReservableDate(now, closedToday)];
+export function getReservableDates(
+  now: Date = new Date(),
+  closedToday = false,
+  closedDates?: ClosedDates
+): string[] {
+  return [getReservableDate(now, closedToday, closedDates)];
 }
 
-export function formatJstDateLabel(isoDate: string, now: Date = new Date()): string {
+export function formatJstDateLabel(
+  isoDate: string,
+  now: Date = new Date(),
+  closedDates?: ClosedDates
+): string {
   const [, month, day] = isoDate.split("-").map(Number);
   const weekday = ["日", "月", "火", "水", "木", "金", "土"][
     getJstParts(jstDateStringToUtc(isoDate)).day
   ];
   const today = toJstDateString(now);
   const suffix =
-    isoDate === today ? "（本日）" : isoDate === getNextBusinessDay(now) ? "（次の営業日）" : "";
+    isoDate === today
+      ? "（本日）"
+      : isoDate === getNextBusinessDay(now, closedDates)
+      ? "（次の営業日）"
+      : "";
   return `${month}月${day}日（${weekday}）${suffix}`;
 }
 
