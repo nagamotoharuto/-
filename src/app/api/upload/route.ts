@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { db } from "@/lib/db";
+import { requireStaff } from "@/lib/staffAuth";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 // 取り込み時に縮小するので、元ファイルは大きめでも受け付ける
@@ -9,6 +10,9 @@ const MAX_UPLOAD_SIZE = 12 * 1024 * 1024;
 const MAX_WIDTH = 1200;
 
 export async function POST(request: NextRequest) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;

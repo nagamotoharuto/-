@@ -6,6 +6,7 @@ import {
   OPINION_SOURCE_LABELS,
   toJstDateString,
 } from "@/lib/utils";
+import { requireStaff } from "@/lib/staffAuth";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -35,6 +36,9 @@ function jstDateTime(value: Date | string | null): string {
 }
 
 export async function GET(request: NextRequest) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") ?? "daily";

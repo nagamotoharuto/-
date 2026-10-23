@@ -43,8 +43,10 @@ export default function StaffHeader() {
     };
   }, [pathname]);
 
-  function logout() {
+  async function logout() {
     sessionStorage.removeItem("staff_auth");
+    // サーバー側の札も消す。端末に残したままにしない。
+    await fetch("/api/staff/auth", { method: "DELETE" }).catch(() => {});
     router.push("/admin");
   }
 
