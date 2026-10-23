@@ -26,8 +26,11 @@ export default function StaffLoginPage() {
       if (data.success) {
         sessionStorage.setItem("staff_auth", "1");
         router.push("/admin/dashboard");
+      } else if (res.status === 429) {
+        // 間違いが続いて締め出されている。待ち時間をそのまま伝える。
+        setError(data.error ?? "しばらくお待ちください");
       } else {
-        setError("パスワードが正しくありません");
+        setError(data.error ?? "パスワードが正しくありません");
       }
     } catch {
       setError("通信エラーが発生しました");
