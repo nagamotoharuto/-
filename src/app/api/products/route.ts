@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { compareProducts } from "@/lib/utils";
+import { requireStaff } from "@/lib/staffAuth";
 
 export async function POST(request: NextRequest) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const { name, category, subCategory, price, imageUrl, stock, description } = body as {

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getAvailability } from "@/lib/availability";
 import { isBusinessDay, toJstDateString } from "@/lib/utils";
 import { getClosedDatesInRange } from "@/lib/closures";
+import { requireStaff } from "@/lib/staffAuth";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -46,6 +47,9 @@ async function findSourceDate(
 }
 
 export async function POST(request: NextRequest) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const { date, mode, from } = body as {

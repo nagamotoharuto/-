@@ -7,9 +7,13 @@ import {
   OPINION_SOURCES,
   toJstDateString,
 } from "@/lib/utils";
+import { requireStaff } from "@/lib/staffAuth";
 
 /** スタッフ向け。新しい順にまとめて返す。 */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const opinions = await db.opinion.findMany({ orderBy: { createdAt: "desc" } });
     const unreadCount = opinions.filter((o) => o.readAt === null).length;
@@ -98,7 +102,10 @@ export async function POST(request: NextRequest) {
 }
 
 /** スタッフが目を通したことを記録する。未読の件数を正しく出すため。 */
-export async function PATCH() {
+export async function PATCH(request: NextRequest) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const result = await db.opinion.updateMany({
       where: { readAt: null },

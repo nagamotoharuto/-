@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ensureCarryOver, getAvailability, syncSoldOutAt } from "@/lib/availability";
+import { requireStaff } from "@/lib/staffAuth";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -28,6 +29,9 @@ export async function GET(request: NextRequest) {
  * 別々の場面で使うので、どちらか片方だけでも更新できる。
  */
 export async function PATCH(request: NextRequest) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const { productId, date, plannedQty, closingQty } = body as {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getClosedDates } from "@/lib/closures";
 import { getReservableDate, isWithinSalesHours, toJstDateString } from "@/lib/utils";
+import { requireStaff } from "@/lib/staffAuth";
 
 /** 今日が臨時に店じまいされているか。 */
 export async function isClosedToday(now: Date = new Date()): Promise<boolean> {
@@ -41,6 +42,9 @@ export async function GET() {
  * 飛ばして次の営業日を出すために使う。
  */
 export async function POST(request: NextRequest) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const body = await request.json().catch(() => ({}));
     const { date } = body as { date?: string };
@@ -69,6 +73,9 @@ export async function POST(request: NextRequest) {
 
 /** 間違えて終了したときに戻す。 */
 export async function DELETE(request: NextRequest) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get("date") ?? toJstDateString();

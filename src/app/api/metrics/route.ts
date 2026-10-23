@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMetrics } from "@/lib/metrics";
 import { toJstDateString } from "@/lib/utils";
+import { requireStaff } from "@/lib/staffAuth";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request: NextRequest) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(request.url);
     const today = toJstDateString();

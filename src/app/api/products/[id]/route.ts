@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireStaff } from "@/lib/staffAuth";
 
 export async function GET(
   _request: NextRequest,
@@ -27,6 +28,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -96,9 +100,12 @@ export async function PATCH(
  * 一度でも売れた・予約された商品は消さず、販売停止にするよう促す。
  */
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const { id } = await params;
 

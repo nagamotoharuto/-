@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toJstDateString } from "@/lib/utils";
+import { requireStaff } from "@/lib/staffAuth";
 
 // 飛び込み客の売り切れ遭遇。アプリからは観測できないため販売員が1件ずつ記録する。
 export async function GET(request: NextRequest) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get("date") ?? toJstDateString();
@@ -21,6 +25,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const body = await request.json().catch(() => ({}));
     const { date, productName } = body as { date?: string; productName?: string };
@@ -40,6 +47,9 @@ export async function POST(request: NextRequest) {
 
 // 直近1件の取り消し（押し間違い用）
 export async function DELETE(request: NextRequest) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get("date") ?? toJstDateString();

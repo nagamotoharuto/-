@@ -11,6 +11,7 @@ import {
 import { ensureCarryOver, getAvailability, releaseOverdueReservations } from "@/lib/availability";
 import { isClosedToday } from "@/app/api/business-status/route";
 import { getClosedDates } from "@/lib/closures";
+import { hasStaffSession } from "@/lib/staffAuth";
 import { grantStamps } from "@/lib/stamps";
 
 const PAYMENT_METHODS = ["cash", "cashless"];
@@ -23,10 +24,25 @@ function getYesterdayString(): string {
   return toJstDateString(new Date(Date.now() - 24 * 60 * 60 * 1000));
 }
 
+/**
+ * 予約の取得。
+ *
+ * お名前を指定すればその方のぶんだけ返す（マイページ用）。指定が無ければ
+ * 全件になるが、予約にはお名前とメールアドレスが入っているので、
+ * スタッフとして入っている場合にかぎる。
+ */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const nickname = searchParams.get("nickname");
+
+    if (!nickname && !hasStaffSession(request)) {
+      return NextResponse.json(
+        { error: "スタッフ専用画面にログインしてください" },
+        { status: 401 }
+      );
+    }
+
     const orders = await db.order.findMany({
       where: nickname ? { nickname } : undefined,
       include: { items: { include: { product: true } } },

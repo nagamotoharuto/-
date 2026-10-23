@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { resyncSoldOutForOrders } from "@/lib/availability";
+import { requireStaff } from "@/lib/staffAuth";
 
 // "released" = 未受取のまま受け取り時間を過ぎ、店頭販売に戻した予約
 const VALID_STATUSES = ["pending", "ready", "completed", "cancelled", "released"] as const;
 type OrderStatus = (typeof VALID_STATUSES)[number];
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const { id } = await params;
 
@@ -38,6 +42,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const { id } = await params;
     const body = await request.json();

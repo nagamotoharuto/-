@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { compareProducts } from "@/lib/utils";
+import { requireStaff } from "@/lib/staffAuth";
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const products = await db.product.findMany({
       select: {
@@ -31,6 +35,9 @@ export async function GET(_request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const denied = requireStaff(request);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const { productId, stock } = body as { productId: string; stock: number };
