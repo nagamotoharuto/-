@@ -5,6 +5,12 @@ import {
   issueStaffSession,
   safeEqual,
 } from "@/lib/staffAuth";
+import {
+  clientKey,
+  recordFailure,
+  recordSuccess,
+  retryAfterSeconds,
+} from "@/lib/loginThrottle";
 
 /**
  * スタッフ専用画面の入口。
@@ -12,6 +18,9 @@ import {
  * 合言葉が合えば、署名付きの札をCookieに入れて返す。スタッフ用のAPIは
  * その札を見て通す。画面を開けたかどうかだけでなく、APIそのものを
  * 守るために必要。
+ *
+ * 短い合言葉でも使えるよう、間違いが続いた接続元はしばらく締め出す。
+ * 総当たりは何千回と試して当てるものなので、回数を絞れば成立しない。
  */
 export async function POST(request: NextRequest) {
   try {
@@ -20,6 +29,20 @@ export async function POST(request: NextRequest) {
 
     if (!password) {
       return NextResponse.json({ error: "合言葉を入力してください" }, { status: 400 });
+    }
+
+    // 間違いが続いた接続元は、合言葉を見る前に断る
+    const key = clientKey(request.headers);
+    const wait = retryAfterSeconds(key);
+    if (wait > 0) {
+      return NextResponse.json(
+        {
+          error: `入力の間違いが続いたため、しばらくお待ちください（あと約${Math.ceil(
+            wait / 60
+          )}分）`,
+        },
+        { status: 429, headers: { "Retry-After": String(wait) } }
+      );
     }
 
     // 合言葉が未設定のまま動かさない。以前はここに決め打ちの合言葉を
@@ -34,9 +57,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (!safeEqual(password, staffPassword)) {
+      recordFailure(key);
       return NextResponse.json({ success: false }, { status: 401 });
     }
 
+    recordSuccess(key);
     const token = issueStaffSession();
     if (!token) {
       return NextResponse.json({ error: "ログインに失敗しました" }, { status: 500 });
