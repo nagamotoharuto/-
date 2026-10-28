@@ -1,19 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { resyncSoldOutForOrders } from "@/lib/availability";
-import { requireStaff } from "@/lib/staffAuth";
+import { hasStaffSession, requireStaff } from "@/lib/staffAuth";
 
 // "released" = 未受取のまま受け取り時間を過ぎ、店頭販売に戻した予約
 const VALID_STATUSES = ["pending", "ready", "completed", "cancelled", "released"] as const;
 type OrderStatus = (typeof VALID_STATUSES)[number];
 
+/**
+ * 予約1件の取得。
+ *
+ * 予約を終えたお客様が見る確認画面がここを読む。予約番号は推測できない
+ * 文字列なので、番号を持っている本人だけが開ける。スタッフでなければ
+ * 開けない作りにしていたが、それでは予約した本人が確認画面を開けず、
+ * 送信のあとに「注文が見つかりませんでした」と出てしまっていた。
+ *
+ * ただしメールアドレスは確認画面では使わない。番号を知る人なら誰でも
+ * 読めてしまう場所に置く必要がないので、スタッフ以外には返さない。
+ */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const denied = requireStaff(request);
-  if (denied) return denied;
-
   try {
     const { id } = await params;
 
@@ -26,6 +34,11 @@ export async function GET(
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    if (!hasStaffSession(request)) {
+      const { email: _email, ...rest } = order;
+      return NextResponse.json(rest);
     }
 
     return NextResponse.json(order);
