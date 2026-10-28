@@ -1,0 +1,335 @@
+<title>パン販売所 予約ポスター</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+
+<style>
+  /* 掲示物。A4縦1枚に収め、背景色も必ず印刷されるようにする。 */
+  @page { size: A4 portrait; margin: 0; }
+
+  :root {
+    --crust:  #8B1A2C;
+    --butter: #F0AA5A;
+    --cream:  #FBF4E9;
+    --crumb:  #FFFDF8;
+    --cocoa:  #3A2318;
+    --stone:  #7A6354;
+    --rule:   #E4D6C0;
+
+    --display: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif;
+    --body:    "Noto Sans JP", "Hiragino Sans", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--cream);
+    color: var(--cocoa);
+    font-family: var(--body);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .sheet {
+    width: 210mm;
+    height: 297mm;
+    margin: 0 auto;
+    background: var(--cream);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ---------- 見出し帯 ---------- */
+
+  .band {
+    background: var(--crust);
+    color: var(--cream);
+    padding: 11mm 14mm 9mm;
+    text-align: center;
+    position: relative;
+  }
+
+  /* パンの袋を留めるタグのような、切り取り線の縁取り */
+  .band::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 3mm;
+    background: repeating-linear-gradient(
+      90deg,
+      var(--butter) 0 6mm,
+      transparent 6mm 12mm
+    );
+  }
+
+  .eyebrow {
+    font-family: var(--body);
+    font-size: 3.6mm;
+    font-weight: 700;
+    letter-spacing: .5em;
+    text-indent: .5em;
+    margin: 0 0 4mm;
+    opacity: .85;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 900;
+    font-size: 15mm;
+    line-height: 1.3;
+    letter-spacing: .02em;
+    margin: 0;
+  }
+
+  h1 .accent { color: var(--butter); }
+
+  .lede {
+    font-size: 4.4mm;
+    line-height: 1.7;
+    margin: 5mm 0 0;
+    font-weight: 500;
+  }
+
+  /* ---------- 本体 ---------- */
+
+  .main {
+    flex: 1;
+    padding: 9mm 14mm 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- QRの札 ---------- */
+
+  .tag {
+    background: var(--crumb);
+    border: 0.8mm dashed var(--rule);
+    border-radius: 4mm;
+    padding: 7mm 8mm 6mm;
+    display: flex;
+    align-items: center;
+    gap: 8mm;
+  }
+
+  .qr {
+    width: 52mm;
+    height: 52mm;
+    flex-shrink: 0;
+    background: #fff;
+    border-radius: 2mm;
+  }
+  .qr svg { width: 100%; height: 100%; display: block; }
+
+  .tag-text { flex: 1; }
+
+  .scan {
+    font-family: var(--display);
+    font-weight: 900;
+    font-size: 8mm;
+    line-height: 1.35;
+    margin: 0 0 3mm;
+    color: var(--crust);
+  }
+
+  .scan-note {
+    font-size: 3.8mm;
+    line-height: 1.75;
+    margin: 0;
+    color: var(--stone);
+  }
+
+  .url {
+    margin: 4mm 0 0;
+    font-size: 2.9mm;
+    color: var(--stone);
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  /* ---------- 3ステップ ---------- */
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5mm;
+    margin-top: 8mm;
+  }
+
+  .step {
+    background: var(--crumb);
+    border: 0.4mm solid var(--rule);
+    border-radius: 3mm;
+    padding: 5mm 4mm;
+    text-align: center;
+  }
+
+  .step-no {
+    width: 9mm;
+    height: 9mm;
+    margin: 0 auto 3mm;
+    border-radius: 50%;
+    background: var(--butter);
+    color: #fff;
+    font-family: var(--display);
+    font-weight: 900;
+    font-size: 5mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .step-title {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 4.4mm;
+    margin: 0 0 1.5mm;
+    color: var(--cocoa);
+  }
+
+  .step-desc {
+    font-size: 3.3mm;
+    line-height: 1.6;
+    margin: 0;
+    color: var(--stone);
+  }
+
+  /* ---------- 要点 ---------- */
+
+  .points {
+    margin-top: 8mm;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4mm 6mm;
+  }
+
+  .point {
+    display: flex;
+    gap: 3mm;
+    align-items: flex-start;
+  }
+
+  .dot {
+    width: 4mm;
+    height: 4mm;
+    border-radius: 50%;
+    background: var(--crust);
+    flex-shrink: 0;
+    margin-top: 1mm;
+  }
+
+  .point p { margin: 0; font-size: 3.6mm; line-height: 1.65; }
+  .point strong { font-weight: 700; color: var(--crust); }
+
+  /* ---------- 足元 ---------- */
+
+  footer {
+    margin-top: auto;
+    background: var(--crust);
+    color: var(--cream);
+    padding: 7mm 14mm;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 8mm;
+  }
+
+  .where {
+    font-family: var(--display);
+    font-weight: 900;
+    font-size: 6.5mm;
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  .when {
+    font-size: 3.6mm;
+    line-height: 1.6;
+    margin: 1.5mm 0 0;
+    opacity: .9;
+  }
+
+  .stamp {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .stamp p { margin: 0; }
+  .stamp .big {
+    font-family: var(--display);
+    font-weight: 900;
+    font-size: 5mm;
+    color: var(--butter);
+    line-height: 1.4;
+  }
+  .stamp .small { font-size: 3.1mm; opacity: .85; line-height: 1.6; }
+</style>
+
+<div class="sheet">
+  <div class="band">
+    <p class="eyebrow">学内パン販売所</p>
+    <h1>売り切れる前に、<br><span class="accent">とっておく。</span></h1>
+    <p class="lede">スマホで予約して、好きな時間に受け取るだけ。<br>昼休みに並ばなくても、食べたいパンが残っています。</p>
+  </div>
+
+  <div class="main">
+    <div class="tag">
+      <div class="qr"><svg viewBox="0 0 43 43" shape-rendering="crispEdges"><path stroke="#2B1810" d="M1 1.5h7m1 0h2m1 0h2m1 0h1m1 0h2m1 0h3m1 0h1m1 0h1m2 0h1m2 0h2m1 0h7M1 2.5h1m5 0h1m1 0h2m3 0h1m2 0h4m2 0h7m1 0h1m1 0h1m1 0h1m5 0h1M1 3.5h1m1 0h3m1 0h1m1 0h5m1 0h2m2 0h1m1 0h3m1 0h2m1 0h1m4 0h1m1 0h1m1 0h3m1 0h1M1 4.5h1m1 0h3m1 0h1m3 0h2m1 0h1m1 0h3m1 0h2m2 0h1m2 0h1m3 0h1m3 0h1m1 0h3m1 0h1M1 5.5h1m1 0h3m1 0h1m4 0h1m1 0h1m2 0h1m7 0h1m3 0h1m2 0h2m1 0h1m1 0h3m1 0h1M1 6.5h1m5 0h1m1 0h1m1 0h2m1 0h1m1 0h3m2 0h1m2 0h1m3 0h1m1 0h1m2 0h1m1 0h1m5 0h1M1 7.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 8.5h3m1 0h4m2 0h2m2 0h1m7 0h2M3 9.5h3m1 0h1m1 0h1m2 0h1m2 0h1m3 0h2m1 0h1m1 0h2m2 0h1m1 0h1m3 0h3m2 0h3M8 10.5h1m1 0h1m1 0h4m1 0h1m2 0h1m1 0h1m1 0h1m2 0h1m1 0h9m1 0h3M1 11.5h5m1 0h2m2 0h3m2 0h1m1 0h2m1 0h2m1 0h5m4 0h2m1 0h2M1 12.5h3m2 0h1m2 0h2m1 0h2m4 0h1m1 0h1m2 0h2m3 0h2m2 0h2m4 0h1m2 0h1M1 13.5h1m2 0h4m4 0h2m2 0h4m5 0h1m3 0h2m1 0h1m5 0h2M1 14.5h2m1 0h2m7 0h1m1 0h3m1 0h4m3 0h3m2 0h1m1 0h1m1 0h3m3 0h1M1 15.5h2m1 0h1m1 0h2m1 0h1m2 0h3m1 0h3m2 0h3m2 0h4m1 0h2m1 0h1m2 0h3M3 16.5h1m2 0h1m1 0h1m1 0h3m1 0h2m1 0h2m1 0h1m1 0h2m1 0h1m2 0h1m2 0h3m1 0h1m4 0h1M1 17.5h1m1 0h1m1 0h3m3 0h1m2 0h1m1 0h2m2 0h1m1 0h1m1 0h3m1 0h1m1 0h5m1 0h1m2 0h1M2 18.5h2m2 0h1m1 0h2m1 0h3m2 0h1m9 0h1m2 0h5m1 0h4m2 0h1M4 19.5h1m1 0h3m2 0h1m1 0h3m1 0h2m1 0h3m4 0h4m3 0h1m2 0h2M1 20.5h2m5 0h1m5 0h1m1 0h1m1 0h1m3 0h3m1 0h1m1 0h1m1 0h4m3 0h2m2 0h1M1 21.5h3m2 0h3m2 0h2m2 0h1m5 0h2m1 0h1m1 0h4m2 0h2m5 0h2M6 22.5h1m1 0h2m1 0h4m5 0h3m1 0h1m2 0h1m1 0h1m1 0h3m1 0h3m2 0h2M2 23.5h1m1 0h8m1 0h1m4 0h3m3 0h1m1 0h3m4 0h1m1 0h1m2 0h1M2 24.5h1m3 0h1m1 0h1m1 0h1m2 0h5m1 0h1m1 0h2m2 0h2m1 0h1m6 0h2m1 0h1m2 0h1M1 25.5h1m3 0h1m1 0h2m1 0h2m2 0h1m2 0h1m2 0h1m2 0h4m1 0h1m1 0h1m1 0h1m5 0h3M1 26.5h1m2 0h1m5 0h5m2 0h1m4 0h2m5 0h1m1 0h2m1 0h5m2 0h1M4 27.5h1m2 0h1m1 0h2m1 0h1m1 0h3m1 0h1m1 0h3m5 0h1m2 0h1m1 0h2m2 0h1M1 28.5h1m1 0h1m1 0h1m2 0h4m2 0h2m2 0h1m1 0h3m2 0h2m5 0h3m1 0h3m1 0h1M1 29.5h1m1 0h1m2 0h2m1 0h1m1 0h4m2 0h2m2 0h2m3 0h1m1 0h1m1 0h3m5 0h2m1 0h1M1 30.5h2m3 0h1m1 0h1m3 0h2m1 0h2m1 0h1m2 0h1m6 0h4m3 0h7M1 31.5h1m2 0h6m1 0h1m1 0h1m1 0h3m4 0h1m1 0h1m1 0h2m2 0h1m3 0h3m1 0h1M1 32.5h1m1 0h1m2 0h1m1 0h1m1 0h1m3 0h2m1 0h1m1 0h2m1 0h2m2 0h1m2 0h1m1 0h1m2 0h2m1 0h2m2 0h1M1 33.5h1m2 0h4m3 0h5m2 0h1m2 0h6m3 0h1m2 0h5m1 0h1m1 0h1M9 34.5h2m1 0h2m1 0h1m2 0h6m2 0h2m1 0h1m3 0h1m3 0h1m3 0h1M1 35.5h7m2 0h3m1 0h2m1 0h2m6 0h2m1 0h1m2 0h3m1 0h1m1 0h3M1 36.5h1m5 0h1m3 0h1m1 0h1m1 0h4m1 0h1m1 0h1m1 0h2m1 0h1m5 0h1m3 0h2M1 37.5h1m1 0h3m1 0h1m1 0h2m1 0h1m1 0h1m5 0h1m2 0h2m1 0h4m1 0h1m1 0h7M1 38.5h1m1 0h3m1 0h1m1 0h1m2 0h2m1 0h3m9 0h1m1 0h1m3 0h2m1 0h1m2 0h1m1 0h1M1 39.5h1m1 0h3m1 0h1m1 0h3m4 0h3m5 0h2m1 0h3m1 0h8m1 0h1M1 40.5h1m5 0h1m2 0h8m1 0h1m1 0h1m1 0h1m1 0h1m1 0h3m3 0h2m2 0h1m2 0h1M1 41.5h7m5 0h2m1 0h1m2 0h2m2 0h2m4 0h2m1 0h1m1 0h4m1 0h1"/></svg></div>
+      <div class="tag-text">
+        <p class="scan">このQRコードを<br>読み取ってください</p>
+        <p class="scan-note">スマホのカメラを向けるだけ。<br>アプリのダウンロードは要りません。</p>
+        <p class="url">https://fearless-charisma-production.up.railway.app</p>
+      </div>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-no">1</div>
+        <p class="step-title">時間を選ぶ</p>
+        <p class="step-desc">11:35〜14:25の間で<br>受け取る時間を指定</p>
+      </div>
+      <div class="step">
+        <div class="step-no">2</div>
+        <p class="step-title">パンを選ぶ</p>
+        <p class="step-desc">その日のパンから<br>好きなものを選択</p>
+      </div>
+      <div class="step">
+        <div class="step-no">3</div>
+        <p class="step-title">受け取る</p>
+        <p class="step-desc">お名前を伝えて<br>その場でお支払い</p>
+      </div>
+    </div>
+
+    <div class="points">
+      <div class="point">
+        <span class="dot"></span>
+        <p><strong>前日から予約できます。</strong>営業終了後に翌営業日分の受付が始まります。</p>
+      </div>
+      <div class="point">
+        <span class="dot"></span>
+        <p><strong>支払いは受け取り時。</strong>現金でもキャッシュレスでも大丈夫です。</p>
+      </div>
+      <div class="point">
+        <span class="dot"></span>
+        <p><strong>今週のパンが分かります。</strong>曜日ごとの品揃えをアプリで確認できます。</p>
+      </div>
+      <div class="point">
+        <span class="dot"></span>
+        <p><strong>受け取り時間から15分</strong>を過ぎると、ご予約は取り消しになります。</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div>
+      <p class="where">パン販売所</p>
+      <p class="when">営業時間　平日 11:00〜15:00（土日祝はお休み）</p>
+    </div>
+    <div class="stamp">
+      <p class="big">スタンプカード<br>はじめました</p>
+      <p class="small">ご注文ごとにスタンプが貯まります</p>
+    </div>
+  </footer>
+</div>
