@@ -16,8 +16,7 @@ export function generateOrderNumber(): string {
   return `${pad(now.getHours())}${pad(now.getMinutes())}${Math.floor(Math.random() * 100).toString().padStart(2, "0")}`;
 }
 
-// 受け取り時間の枠。店は11:00〜15:00だが、開店直後と閉店間際は準備と片付けが
-// あるため、受け取りは11:30〜14:30に絞る。
+// 受け取り時間の枠。実際に選べるのは11:35〜14:25の10分ごと。
 const PICKUP_START_MIN = 11 * 60 + 30;
 const PICKUP_END_MIN = 14 * 60 + 30;
 const PICKUP_STEP_MIN = 10;
@@ -104,14 +103,27 @@ export function isBusinessDay(date: Date = new Date(), closedDates?: ClosedDates
   return !holidayJp.isHoliday(isoDate);
 }
 
-// 営業時間：営業日の 11:00〜15:00（日本時間基準）
+// 営業時間（日本時間基準）。受け取りの枠と同じ範囲にしてある。
+// 掲示と画面で違う時間を出さないよう、ここだけ直せば揃うようにしておく。
+const SALES_START_MIN = 11 * 60 + 35;
+const SALES_END_MIN = 14 * 60 + 25;
+
+function formatMinutes(total: number): string {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+}
+
+/** 画面に出す営業時間の文字列。例：「11:35〜14:25」 */
+export const SALES_HOURS_LABEL = `${formatMinutes(SALES_START_MIN)}〜${formatMinutes(SALES_END_MIN)}`;
+
 export function isWithinSalesHours(date: Date = new Date(), closedDates?: ClosedDates): boolean {
   // Local test-drive override — set in .env only, never commit/deploy this as true.
   if (process.env.NEXT_PUBLIC_FORCE_SALES_OPEN === "true") return true;
   if (!isBusinessDay(date, closedDates)) return false;
   const { hour, minute } = getJstParts(date);
   const totalMin = hour * 60 + minute;
-  return totalMin >= 11 * 60 && totalMin < 15 * 60;
+  // 終わりの時刻まで含める。14:25は最後の受け取り枠なので、その時点では開いている。
+  return totalMin >= SALES_START_MIN && totalMin <= SALES_END_MIN;
 }
 
 // ---- 予約可能日（前営業日〜当日） ----

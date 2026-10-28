@@ -19,6 +19,7 @@ import {
   formatJstDateLabel,
   getReservableDate,
   PICKUP_PLACE,
+  SALES_HOURS_LABEL,
   WEEKLY_MENU_ENABLED,
 } from "@/lib/utils";
 
@@ -91,7 +92,7 @@ export default function HomePage() {
           <p className="text-sm text-[#A8C8F0] mb-4">事前予約サービス</p>
           <div className="flex items-center justify-center gap-2 text-xs bg-white/10 rounded-lg px-4 py-2 mb-2">
             <MapPin size={12} />
-            <span>{PICKUP_PLACE}　営業時間 平日11:00〜15:00</span>
+            <span>{PICKUP_PLACE}　営業時間 平日{SALES_HOURS_LABEL}</span>
           </div>
           <div
             className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${

@@ -13,6 +13,7 @@ import {
   getReservableDate,
   isWithinSalesHours,
   PICKUP_PLACE,
+  SALES_HOURS_LABEL,
   RELEASE_GRACE_MINUTES,
   toJstDateString,
 } from "@/lib/utils";
@@ -104,7 +105,7 @@ export default function TimePage() {
             <div>
               <p className="text-sm font-bold text-[#1a1a1a]">受け取り場所</p>
               <p className="text-sm text-[#6b5e52]">{PICKUP_PLACE}</p>
-              <p className="text-xs text-[#6b5e52] mt-1">営業時間：平日11:00〜15:00（土日祝休業）</p>
+              <p className="text-xs text-[#6b5e52] mt-1">営業時間：平日{SALES_HOURS_LABEL}（土日祝休業）</p>
               <p className="text-xs text-[#6b5e52]">ご予約の受け取りは11:35〜14:25です</p>
             </div>
           </div>
