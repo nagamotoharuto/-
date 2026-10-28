@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { CheckCircle, MapPin, Clock, Receipt, Home, User } from "lucide-react";
 import { useBakeryStore } from "@/lib/store";
-import { formatJstDateLabel, formatPrice, PAYMENT_LABELS, RELEASE_GRACE_MINUTES } from "@/lib/utils";
+import { formatJstDateLabel, formatPrice, PAYMENT_LABELS, PICKUP_PLACE, RELEASE_GRACE_MINUTES } from "@/lib/utils";
 import BottomNav from "@/components/features/BottomNav";
 
 interface OrderItem {
@@ -116,7 +116,7 @@ export default function ConfirmPage() {
             <MapPin size={16} className="text-[#8B1A2C] mt-0.5 flex-shrink-0" />
             <div>
               <p className="text-xs text-[#6b5e52] font-medium mb-1">受け取り場所</p>
-              <p className="text-sm font-bold text-[#1a1a1a]">1F 正面玄関前</p>
+              <p className="text-sm font-bold text-[#1a1a1a]">{PICKUP_PLACE}</p>
             </div>
           </div>
         </div>
@@ -126,7 +126,7 @@ export default function ConfirmPage() {
           <p className="text-xs font-bold text-[#6b5e52] mb-3">How to pick up</p>
           <ol className="space-y-2">
             {[
-              "指定の日時に1F 正面玄関前にお越しください",
+              `指定の日時に${PICKUP_PLACE}にお越しください`,
               "スタッフに名前をお伝えください",
               "商品をお受け取りの際にお支払いください",
               `受け取り時間から${RELEASE_GRACE_MINUTES}分を過ぎると予約は自動で取り消されます`,

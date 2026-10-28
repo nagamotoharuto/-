@@ -324,6 +324,9 @@ export const OPINION_SOURCE_LABELS: Record<string, string> = {
   staff: "口頭",
 };
 
+// 受け取り場所。画面のあちこちに出るので、ここだけ直せば揃うようにしておく。
+export const PICKUP_PLACE = "パン販売所";
+
 export const STAMPS_PER_CARD = 10;
 
 // スタンプが満了したときの特典は製作者が個別に渡すため、

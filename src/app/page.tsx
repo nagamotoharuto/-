@@ -18,6 +18,7 @@ import BottomNav from "@/components/features/BottomNav";
 import {
   formatJstDateLabel,
   getReservableDate,
+  PICKUP_PLACE,
   WEEKLY_MENU_ENABLED,
 } from "@/lib/utils";
 
@@ -90,7 +91,7 @@ export default function HomePage() {
           <p className="text-sm text-[#A8C8F0] mb-4">事前予約サービス</p>
           <div className="flex items-center justify-center gap-2 text-xs bg-white/10 rounded-lg px-4 py-2 mb-2">
             <MapPin size={12} />
-            <span>1F 正面玄関前　営業時間 平日11:00〜15:00</span>
+            <span>{PICKUP_PLACE}　営業時間 平日11:00〜15:00</span>
           </div>
           <div
             className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${
@@ -243,7 +244,7 @@ export default function HomePage() {
         </div>
 
         <p className="text-center text-xs text-[#6b5e52] mt-4">
-          お受け取りは <strong>1F 正面玄関前</strong> にて
+          お受け取りは <strong>{PICKUP_PLACE}</strong> にて
         </p>
       </div>
 
