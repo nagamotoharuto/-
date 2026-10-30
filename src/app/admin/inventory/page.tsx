@@ -32,8 +32,11 @@ import {
   formatPrice,
   getNextBusinessDay,
   getReservableQty,
+  getSection,
   getUpcomingBusinessDays,
   getWalkInSharePercent,
+  SECTION_LABELS,
+  SECTIONS,
   SUB_CATEGORIES,
   SUB_CATEGORY_LABELS,
   toJstDateString,
@@ -294,6 +297,31 @@ export default function InventoryPage() {
     }
   }
 
+  /**
+   * 売り場ごとに仕分けして、発注数を入れたものを上に出す。
+   *
+   * 商品が増えると、その日に出すものを探すのに毎回下まで見ることになる。
+   * 入れ終えたものが上に集まれば、入力の済み・未済が一目で分かる。
+   * 同じ区分の中は名前順のまま。
+   */
+  const sectioned = useMemo(() => {
+    const map = new Map<string, Item[]>();
+    for (const item of items) {
+      const key = getSection(item);
+      const list = map.get(key) ?? [];
+      list.push(item);
+      map.set(key, list);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => {
+        const offeredDiff = (b.plannedQty > 0 ? 1 : 0) - (a.plannedQty > 0 ? 1 : 0);
+        if (offeredDiff !== 0) return offeredDiff;
+        return a.name.localeCompare(b.name, "ja");
+      });
+    }
+    return map;
+  }, [items]);
+
   const laterSetCount = laterDates.filter((d) => laterFilled[d]).length;
   const isLaterDate = !saleDates.includes(date);
   const isClosedDate = closedDates.includes(date);
@@ -528,8 +556,8 @@ export default function InventoryPage() {
             </button>
           </div>
           <p className="text-[11px] text-[#6b5e52] mt-1.5">
-            <strong className="text-[#8B1A2C]">ドリンクとお菓子は前回の数を自動で引き継ぎます。</strong>
-            入力し直す必要はありません。数を変えたい日だけ直してください。
+            <strong className="text-[#8B1A2C]">カップ麺・お菓子・ドリンクは前回の閉店残数を引き継ぎます。</strong>
+            棚に残っていた数がそのまま入るので、補充したぶんだけ足してください。
             パンは曜日で決まっているので「先週の同じ曜日から」で写せます。
           </p>
 
@@ -633,8 +661,8 @@ export default function InventoryPage() {
 
         <p className="text-xs text-[#6b5e52]">
           発注数を入れた <strong className="text-[#8B1A2C]">{offeredCount}件</strong> がこの日のメニューに並びます。
-          <strong>0の商品は表示されません。</strong>
-          予約枠はパン・ドリンク・グッズが発注数の70%、お菓子は全量です。
+          <strong>0の商品は表示されません。</strong>入れた商品が各区分の上に集まります。
+          予約枠はお菓子が全量、ほかは発注数の70%です。
         </p>
 
         {/* ---------- 商品一覧 ---------- */}
@@ -649,14 +677,22 @@ export default function InventoryPage() {
             商品が登録されていません
           </p>
         ) : (
-          CATEGORIES.map((cat) => {
-            const catItems = items.filter((i) => i.category === cat);
-            if (catItems.length === 0) return null;
+          SECTIONS.map((sec) => {
+            const secItems = sectioned.get(sec) ?? [];
+            if (secItems.length === 0) return null;
+            const offered = secItems.filter((i) => i.plannedQty > 0).length;
             return (
-              <section key={cat}>
-                <h2 className="text-sm font-black text-[#8B1A2C] mb-2">{CATEGORY_LABELS[cat]}</h2>
+              <section key={sec}>
+                <h2 className="text-sm font-black text-[#8B1A2C] mb-2 flex items-center gap-2">
+                  {SECTION_LABELS[sec]}
+                  {offered > 0 && (
+                    <span className="text-[10px] font-bold text-[#6b5e52] bg-white border border-[#e8e0d8] rounded-full px-2 py-0.5">
+                      {offered}品
+                    </span>
+                  )}
+                </h2>
                 <div className="flex flex-col gap-2">
-                  {catItems.map((item) => {
+                  {secItems.map((item) => {
                     const edit = getEdit(item);
                     const isOpen = openId === item.id;
                     return (

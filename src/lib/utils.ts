@@ -373,12 +373,37 @@ export const CATEGORY_LABELS: Record<string, string> = {
   bread: "パン",
 };
 
-export const SUB_CATEGORIES = ["bread", "sweets"] as const;
+export const SUB_CATEGORIES = ["bread", "noodle", "sweets"] as const;
 
 export const SUB_CATEGORY_LABELS: Record<string, string> = {
   bread: "パン",
+  noodle: "カップ麺",
   sweets: "お菓子",
 };
+
+// 売り場の並び。商品・発注の画面はこの順で区切って出す。
+// パンは毎日入れ替わり、カップ麺・お菓子・ドリンクは前回から引き継ぐので、
+// 毎日触るものを先に置いている。
+export const SECTIONS = ["bread", "noodle", "sweets", "drink", "goods"] as const;
+export type Section = (typeof SECTIONS)[number];
+
+export const SECTION_LABELS: Record<string, string> = {
+  bread: "パン",
+  noodle: "カップ麺",
+  sweets: "お菓子",
+  drink: "ドリンク",
+  goods: "大学グッズ",
+};
+
+/** その商品がどの売り場に並ぶか。 */
+export function getSection(item: { category: string; subCategory?: string | null }): Section {
+  if (item.category === "drink") return "drink";
+  if (item.category === "goods") return "goods";
+  const sub = item.subCategory ?? "";
+  if (sub === "noodle" || sub === "sweets") return sub;
+  // 区分を分ける前のデータは subCategory が空のことがある。食べ物はパン扱い。
+  return "bread";
+}
 
 // パンかどうか。図鑑・購入上限・スタンプ特典・AIカメラのカウントはパンだけが対象。
 // 区分統合前のデータは category 自体が "bread" だったので、そちらも拾う。
@@ -388,7 +413,7 @@ export function isBread(item: { category: string; subCategory?: string | null })
 
 // 一覧の並び順。food の中はパンを先に、お菓子を後に置き、その中は名前順。
 // 売り場をまたぐ比較にも使えるよう、区分の並びも CATEGORIES に合わせる。
-const SUB_CATEGORY_ORDER: Record<string, number> = { bread: 0, sweets: 1 };
+const SUB_CATEGORY_ORDER: Record<string, number> = { bread: 0, noodle: 1, sweets: 2 };
 
 export function compareProducts(
   a: { name: string; category: string; subCategory?: string | null },

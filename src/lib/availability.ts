@@ -119,19 +119,30 @@ export async function resyncSoldOutForOrders(orderIds: string[]): Promise<void> 
   }
 }
 
-/** 毎日ほぼ同じ品揃えで、前日の発注数をそのまま引き継ぐ売り場かどうか。 */
-function carriesOver(p: { category: string; subCategory: string }): boolean {
-  return p.category === "drink" || p.subCategory === "sweets";
-}
+/**
+ * 売れ残りがそのまま翌日の棚に並ぶ売り場。
+ * ドリンク・お菓子・カップ麺はどれも日持ちする。
+ */
+const CARRY_OVER_WHERE = [
+  { category: "drink" },
+  { subCategory: "sweets" },
+  { subCategory: "noodle" },
+];
 
 // 遡って探す上限。これより前の発注数は参考にしない。
 const CARRY_OVER_LOOKBACK_DAYS = 60;
 
 /**
- * ドリンクとお菓子の発注数を前回から引き継ぐ。
+ * ドリンク・お菓子・カップ麺の発注数を前回から引き継ぐ。
  *
- * この2つはほぼ毎日同じ数を出すため、販売日ごとに入力させると手間が
- * かかるだけになる。まだ決めていない日は、直近で入れた数をそのまま置く。
+ * これらは日持ちするので、売れ残りがそのまま翌日の棚に並ぶ。作り直す
+ * わけではないため、販売日ごとに数えて入れ直す手間だけがかかる。
+ *
+ * 引き継ぐのは前回の「閉店残数」。棚に実際に残っていた数がそのまま
+ * 翌日の在庫になる。前回の発注数を引き継ぐと、売れたぶんだけ多く
+ * 見積もってしまい、毎日その差を手で直すことになっていた。
+ *
+ * 閉店残数が未入力の日は数えていないので、その日の発注数で代える。
  *
  * 行を実際に作るのは、閉店処理や売上集計が DailyStock の行を前提に
  * しているため。過去の日付は履歴なので触らない。
@@ -140,7 +151,7 @@ export async function ensureCarryOver(date: string): Promise<number> {
   if (date < toJstDateString()) return 0;
 
   const products = await db.product.findMany({
-    where: { OR: [{ category: "drink" }, { subCategory: "sweets" }] },
+    where: { OR: CARRY_OVER_WHERE },
     select: { id: true },
   });
   if (products.length === 0) return 0;
@@ -160,13 +171,15 @@ export async function ensureCarryOver(date: string): Promise<number> {
   const past = await db.dailyStock.findMany({
     where: { productId: { in: missing }, date: { gte: since, lt: date }, plannedQty: { gt: 0 } },
     orderBy: { date: "desc" },
-    select: { productId: true, plannedQty: true },
+    select: { productId: true, plannedQty: true, closingQty: true },
   });
 
-  // 同じ商品が複数日ぶん返るので、いちばん新しい日の数だけ採る
+  // 同じ商品が複数日ぶん返るので、いちばん新しい日の数だけ採る。
+  // 数えた残数があればそれを、無ければその日の発注数を引き継ぐ。
   const latest = new Map<string, number>();
   for (const row of past) {
-    if (!latest.has(row.productId)) latest.set(row.productId, row.plannedQty);
+    if (latest.has(row.productId)) continue;
+    latest.set(row.productId, row.closingQty ?? row.plannedQty);
   }
   if (latest.size === 0) return 0;
 
