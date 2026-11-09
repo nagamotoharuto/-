@@ -35,13 +35,18 @@ export default function ConfirmPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 予約が成立した時点で支払い画面が空にしている。ここでも空にするのは、
+    // 確認画面をあとから開き直したときに古いカートが残らないようにするため。
+    // 取得に失敗しても空にする。予約は成立しているので、カートに残して
+    // おく理由がない。
     fetch(`/api/orders/${params.id}`)
       .then((r) => r.json())
-      .then((data) => {
-        setOrder(data);
+      .then((data) => setOrder(data))
+      .catch(() => {})
+      .finally(() => {
         clearCart();
-      })
-      .finally(() => setLoading(false));
+        setLoading(false);
+      });
   }, [params.id, clearCart]);
 
   if (loading) {
