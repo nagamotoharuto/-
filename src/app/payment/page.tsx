@@ -6,7 +6,7 @@ import { Wallet, CreditCard, ArrowRight } from "lucide-react";
 import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
 import StepIndicator from "@/components/features/StepIndicator";
-import { useBakeryStore } from "@/lib/store";
+import { useBakeryStore, useStoreHydrated } from "@/lib/store";
 import { formatJstDateLabel, formatPrice } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
@@ -39,14 +39,18 @@ export default function PaymentPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // 端末に保存した情報の読み込みが終わるまで、ホームへ戻す判断をしない
+  const hydrated = useStoreHydrated();
+
   useEffect(() => {
+    if (!hydrated) return;
     if (!user) {
       router.push("/");
       return;
     }
-  }, [user, router]);
+  }, [hydrated, user, router]);
 
-  if (!user) return null;
+  if (!hydrated || !user) return null;
 
   const displayTotal = getTotal();
 

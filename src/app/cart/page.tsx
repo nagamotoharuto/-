@@ -7,7 +7,7 @@ import { Plus, Minus, Trash2, ArrowRight, ShoppingBag } from "lucide-react";
 import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
 import StepIndicator from "@/components/features/StepIndicator";
-import { useBakeryStore } from "@/lib/store";
+import { useBakeryStore, useStoreHydrated } from "@/lib/store";
 import { formatJstDateLabel, formatPrice, BREAD_ORDER_LIMIT, isBread } from "@/lib/utils";
 
 export default function CartPage() {
@@ -18,11 +18,15 @@ export default function CartPage() {
     .filter((c) => isBread(c))
     .reduce((sum, c) => sum + c.quantity, 0);
 
-  useEffect(() => {
-    if (!user) router.push("/");
-  }, [user, router]);
+  // 端末に保存した情報の読み込みが終わるまで、ホームへ戻す判断をしない
+  const hydrated = useStoreHydrated();
 
-  if (!user) return null;
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!user) router.push("/");
+  }, [hydrated, user, router]);
+
+  if (!hydrated || !user) return null;
   const total = getTotal();
   const totalItems = getTotalItems();
 
