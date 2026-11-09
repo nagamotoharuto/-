@@ -25,8 +25,16 @@ const PAYMENT_METHODS = [
 
 export default function PaymentPage() {
   const router = useRouter();
-  const { paymentMethod, setPaymentMethod, getTotal, cart, user, pickupDate, pickupTime } =
-    useBakeryStore();
+  const {
+    paymentMethod,
+    setPaymentMethod,
+    getTotal,
+    cart,
+    user,
+    pickupDate,
+    pickupTime,
+    clearCart,
+  } = useBakeryStore();
   const [selected, setSelected] = useState(paymentMethod || "cash");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -69,6 +77,12 @@ export default function PaymentPage() {
         setError(data.error ?? "注文に失敗しました");
         return;
       }
+
+      // 予約が成立した時点でカートを空にする。確認画面が開けたかどうかに
+      // 関係なく、もう取り置きは押さえられている。通信が切れて確認画面に
+      // たどり着けないと、カートに残ったまま二重に予約できてしまっていた。
+      clearCart();
+
       router.push(`/confirm/${data.id}`);
     } catch {
       setError("通信エラーが発生しました");
