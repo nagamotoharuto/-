@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -115,3 +116,27 @@ export const useBakeryStore = create<BakeryStore>()(
     }
   )
 );
+
+/**
+ * 端末に保存した情報の読み込みが終わったか。
+ *
+ * この入れ物は、お名前や受け取り日時を端末に残しておく。画面を最初から
+ * 読み込むと、まず空の状態で動き始め、そのあと保存した内容が入る。
+ *
+ * 各画面は「お名前が無ければホームへ戻す」という判断をするので、空の
+ * まま判断されると、保存してあるのにホームへ戻されてしまう。読み込みが
+ * 終わるまで待ってから判断するために使う。
+ */
+export function useStoreHydrated(): boolean {
+  const [hydrated, setHydrated] = useState(() => useBakeryStore.persist.hasHydrated());
+
+  useEffect(() => {
+    const done = () => setHydrated(true);
+    const unsubFinish = useBakeryStore.persist.onFinishHydration(done);
+    // 購読する前に終わっていることもあるので、ここでも見ておく
+    if (useBakeryStore.persist.hasHydrated()) done();
+    return unsubFinish;
+  }, []);
+
+  return hydrated;
+}

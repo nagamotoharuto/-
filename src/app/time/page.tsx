@@ -6,7 +6,7 @@ import { Clock, ArrowRight, MapPin, CalendarDays } from "lucide-react";
 import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
 import StepIndicator from "@/components/features/StepIndicator";
-import { useBakeryStore } from "@/lib/store";
+import { useBakeryStore, useStoreHydrated } from "@/lib/store";
 import {
   formatJstDateLabel,
   getAvailableTimeSlots,
@@ -30,9 +30,13 @@ export default function TimePage() {
   const [selectedTime, setSelectedTime] = useState(pickupTime);
   const [error, setError] = useState("");
 
+  // 端末に保存した情報の読み込みが終わるまで、ホームへ戻す判断をしない
+  const hydrated = useStoreHydrated();
+
   useEffect(() => {
+    if (!hydrated) return;
     if (!user) router.push("/");
-  }, [user, router]);
+  }, [hydrated, user, router]);
 
   // Roll over to the next sale date the moment the current one closes
   useEffect(() => {
@@ -62,7 +66,7 @@ export default function TimePage() {
     };
   }, []);
 
-  if (!user) return null;
+  if (!hydrated || !user) return null;
 
   const timeSlots = selectedDate ? getAvailableTimeSlots(selectedDate) : [];
   const isToday = selectedDate === toJstDateString();

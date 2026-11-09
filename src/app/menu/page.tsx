@@ -7,7 +7,7 @@ import Header from "@/components/features/Header";
 import BottomNav from "@/components/features/BottomNav";
 import ProductCard from "@/components/features/ProductCard";
 import StepIndicator from "@/components/features/StepIndicator";
-import { useBakeryStore } from "@/lib/store";
+import { useBakeryStore, useStoreHydrated } from "@/lib/store";
 import {
   CATEGORIES as SALE_CATEGORIES,
   CATEGORY_LABELS,
@@ -42,11 +42,15 @@ interface AvailabilityItem {
 export default function MenuPage() {
   const router = useRouter();
   const { user, pickupDate, pickupTime, getTotalItems, getTotal } = useBakeryStore();
+  // 端末に保存した情報の読み込みが終わるまで、ホームへ戻す判断をしない
+  const hydrated = useStoreHydrated();
+
   const [products, setProducts] = useState<AvailabilityItem[]>([]);
   const [category, setCategory] = useState("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!hydrated) return;
     // The date drives which day's quota we are booking against, so it has to be
     // chosen (step 1) before the menu can show anything meaningful.
     if (!user) {
@@ -80,7 +84,7 @@ export default function MenuPage() {
       loadAvailability();
     }, 5000);
     return () => clearInterval(id);
-  }, [user, pickupDate, pickupTime, router]);
+  }, [hydrated, user, pickupDate, pickupTime, router]);
 
   if (!user || !pickupDate) return null;
 
