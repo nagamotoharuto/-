@@ -128,14 +128,22 @@ export const useBakeryStore = create<BakeryStore>()(
  * 終わるまで待ってから判断するために使う。
  */
 export function useStoreHydrated(): boolean {
-  const [hydrated, setHydrated] = useState(() => useBakeryStore.persist.hasHydrated());
+  // サーバー側では保存先そのものが無いので、必ず未完了から始める。
+  // 画面が組み上がってから切り替えることで、サーバーと食い違わない。
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    const api = useBakeryStore.persist;
+    // 保存の仕組みが無い状況では待っても始まらないので、そのまま進める
+    if (!api) {
+      setHydrated(true);
+      return;
+    }
     const done = () => setHydrated(true);
-    const unsubFinish = useBakeryStore.persist.onFinishHydration(done);
+    const unsubscribe = api.onFinishHydration(done);
     // 購読する前に終わっていることもあるので、ここでも見ておく
-    if (useBakeryStore.persist.hasHydrated()) done();
-    return unsubFinish;
+    if (api.hasHydrated()) done();
+    return unsubscribe;
   }, []);
 
   return hydrated;
