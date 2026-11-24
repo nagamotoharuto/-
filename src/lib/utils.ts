@@ -366,41 +366,47 @@ export const CATEGORIES = ["food", "drink", "goods"] as const;
 export type Category = (typeof CATEGORIES)[number];
 
 export const CATEGORY_LABELS: Record<string, string> = {
-  food: "パン・お菓子",
+  // パン・おにぎり・カップ麺・お菓子をまとめた呼び名。中身は subCategory で分ける。
+  food: "食べ物",
   drink: "ドリンク",
   goods: "大学グッズ",
   // 区分を統合する前の予約データが残っていても表示できるようにしておく
   bread: "パン",
 };
 
-export const SUB_CATEGORIES = ["bread", "noodle", "sweets"] as const;
+export const SUB_CATEGORIES = ["bread", "onigiri", "noodle", "sweets"] as const;
 
 export const SUB_CATEGORY_LABELS: Record<string, string> = {
   bread: "パン",
+  onigiri: "おにぎり",
   noodle: "カップ麺",
   sweets: "お菓子",
 };
 
 // 売り場の並び。商品・発注の画面はこの順で区切って出す。
-// パンは毎日入れ替わり、カップ麺・お菓子・ドリンクは前回から引き継ぐので、
-// 毎日触るものを先に置いている。
-export const SECTIONS = ["bread", "noodle", "sweets", "drink", "goods"] as const;
+// パンとおにぎりは毎日入れ替わり、カップ麺・お菓子・ドリンクは前回から
+// 引き継ぐので、毎日触るものを先に置いている。
+export const SECTIONS = ["bread", "onigiri", "noodle", "sweets", "drink", "goods"] as const;
 export type Section = (typeof SECTIONS)[number];
 
 export const SECTION_LABELS: Record<string, string> = {
   bread: "パン",
+  onigiri: "おにぎり",
   noodle: "カップ麺",
   sweets: "お菓子",
   drink: "ドリンク",
   goods: "大学グッズ",
 };
 
+// subCategory がそのまま売り場になるもの。パンは既定なのでここには入れない。
+const SECTION_SUB_CATEGORIES = ["onigiri", "noodle", "sweets"] as const;
+
 /** その商品がどの売り場に並ぶか。 */
 export function getSection(item: { category: string; subCategory?: string | null }): Section {
   if (item.category === "drink") return "drink";
   if (item.category === "goods") return "goods";
   const sub = item.subCategory ?? "";
-  if (sub === "noodle" || sub === "sweets") return sub;
+  if ((SECTION_SUB_CATEGORIES as readonly string[]).includes(sub)) return sub as Section;
   // 区分を分ける前のデータは subCategory が空のことがある。食べ物はパン扱い。
   return "bread";
 }
@@ -413,7 +419,7 @@ export function isBread(item: { category: string; subCategory?: string | null })
 
 // 一覧の並び順。food の中はパンを先に、お菓子を後に置き、その中は名前順。
 // 売り場をまたぐ比較にも使えるよう、区分の並びも CATEGORIES に合わせる。
-const SUB_CATEGORY_ORDER: Record<string, number> = { bread: 0, noodle: 1, sweets: 2 };
+const SUB_CATEGORY_ORDER: Record<string, number> = { bread: 0, onigiri: 1, noodle: 2, sweets: 3 };
 
 export function compareProducts(
   a: { name: string; category: string; subCategory?: string | null },
