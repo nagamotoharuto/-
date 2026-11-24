@@ -11,15 +11,27 @@ import { useBakeryStore, useStoreHydrated } from "@/lib/store";
 import {
   CATEGORIES as SALE_CATEGORIES,
   CATEGORY_LABELS,
+  getSection,
+  SECTION_LABELS,
+  SECTIONS,
   formatJstDateLabel,
   formatPrice,
   getReservableDate,
   RESERVATION_RATIO,
 } from "@/lib/utils";
 
+// お客様が絞り込むときの区分。食べ物は中身が増えたので、売り場と同じ
+// 細かさ（パン・おにぎり・カップ麺・お菓子）で選べるようにしている。
 const CATEGORIES = [
   { value: "all", label: "すべて" },
-  ...SALE_CATEGORIES.map((value) => ({ value, label: CATEGORY_LABELS[value] })),
+  ...SECTIONS.filter((s) => s !== "drink" && s !== "goods").map((value) => ({
+    value,
+    label: SECTION_LABELS[value],
+  })),
+  ...SALE_CATEGORIES.filter((c) => c !== "food").map((value) => ({
+    value,
+    label: CATEGORY_LABELS[value],
+  })),
 ];
 
 // Mirrors ProductAvailability from @/lib/availability
@@ -91,7 +103,7 @@ export default function MenuPage() {
   // Products with nothing produced for this date are not on the day's menu
   const offered = products.filter((p) => p.isOffered);
   const filtered =
-    category === "all" ? offered : offered.filter((p) => p.category === category);
+    category === "all" ? offered : offered.filter((p) => getSection(p) === category);
 
   const totalItems = getTotalItems();
   const total = getTotal();
